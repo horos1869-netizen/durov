@@ -8260,8 +8260,495 @@ window.addEventListener('error', (e) => {
     if (game) game.showNotification('Ошибка: ' + e.message, '#f00');
 });
 
-// ─── Start ────────────────────────────────────────────────────────────────
+// ─── GLITCH EFFECTS ENGINE ──────────────────────────────────────────────
+const GLITCH = {
+    active: false,
+    intensity: 0,
+    timer: 0,
+    nextGlitch: 3000 + Math.random() * 7000,
+    offsetX: 0,
+    offsetY: 0,
+    sliceY: 0,
+    sliceH: 0,
+    r: 0, g: 0, b: 0,
+    update(dt) {
+        this.timer += dt;
+        if (this.timer > this.nextGlitch) {
+            this.active = true;
+            this.intensity = 0.03 + Math.random() * 0.06;
+            this.offsetX = (Math.random() - 0.5) * 4;
+            this.offsetY = (Math.random() - 0.5) * 2;
+            this.sliceY = Math.random() * CFG.HEIGHT;
+            this.sliceH = 2 + Math.random() * 8;
+            this.r = Math.random() > 0.5 ? 1 : 0;
+            this.g = Math.random() > 0.7 ? 1 : 0;
+            this.b = Math.random() > 0.5 ? 1 : 0;
+            this.nextGlitch = 5000 + Math.random() * 15000;
+            this.timer = 0;
+            setTimeout(() => { this.active = false; }, 150 + Math.random() * 200);
+        }
+    },
+    apply(ctx) {
+        if (!this.active) return;
+        const w = CFG.WIDTH, h = CFG.HEIGHT;
+        const img = ctx.getImageData(0, 0, w, h);
+        const d = img.data;
+        for (let y = this.sliceY; y < Math.min(h, this.sliceY + this.sliceH); y++) {
+            for (let x = 0; x < w; x++) {
+                const i = (y * w + x) * 4;
+                const offset = Math.floor(this.offsetX * (1 + Math.random()));
+                const oi = (y * w + Math.min(w - 1, Math.max(0, x + offset))) * 4;
+                if (this.r) d[oi] = d[i];
+                if (this.g) d[oi + 1] = d[i + 1];
+                if (this.b) d[oi + 2] = d[i + 2];
+            }
+        }
+        ctx.putImageData(img, 0, 0);
+        ctx.fillStyle = 'rgba(0,255,255,0.03)';
+        ctx.fillRect(0, 0, w, h);
+    },
+};
+
+// ─── SCANLINES / CRT OVERLAY ───────────────────────────────────────────
+const CRT = {
+    opacity: 0.06,
+    scanSpacing: 3,
+    chromatic: true,
+    chromaticOffset: 1.5,
+    vignette: true,
+    vignetteStrength: 0.3,
+    draw(ctx) {
+        const w = CFG.WIDTH, h = CFG.HEIGHT;
+        if (this.opacity > 0) {
+            ctx.fillStyle = 'rgba(0,0,0,' + this.opacity + ')';
+            for (let y = 0; y < h; y += this.scanSpacing) {
+                ctx.fillRect(0, y, w, 1);
+            }
+        }
+        if (this.vignette) {
+            const grad = ctx.createRadialGradient(w / 2, h / 2, h * 0.3, w / 2, h / 2, h * 0.8);
+            grad.addColorStop(0, 'rgba(0,0,0,0)');
+            grad.addColorStop(1, 'rgba(0,0,0,' + this.vignetteStrength + ')');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, w, h);
+        }
+        if (this.chromatic) {
+            const o = this.chromaticOffset;
+            ctx.fillStyle = 'rgba(255,0,0,0.015)';
+            ctx.fillRect(o, 0, w, h);
+            ctx.fillStyle = 'rgba(0,0,255,0.015)';
+            ctx.fillRect(-o, 0, w, h);
+        }
+    },
+};
+
+// ─── SCREEN TRANSITION MANAGER ─────────────────────────────────────────
+const TRANSITION = {
+    active: false,
+    type: 'fade',
+    progress: 0,
+    duration: 300,
+    callback: null,
+    direction: 'in',
+    start(screen, cb) {
+        this.active = true;
+        this.progress = 0;
+        this.direction = 'in';
+        this.callback = () => { game.screen = screen; if (cb) cb(); };
+    },
+    update(dt) {
+        if (!this.active) return;
+        this.progress += dt / this.duration;
+        if (this.progress >= 0.5 && this.callback) {
+            this.callback();
+            this.callback = null;
+            this.direction = 'out';
+        }
+        if (this.progress >= 1) { this.active = false; this.progress = 0; }
+    },
+    draw(ctx) {
+        if (!this.active) return;
+        const p = this.direction === 'in' ? this.progress * 2 : (this.progress - 0.5) * 2;
+        const alpha = this.direction === 'in' ? Math.min(1, p) : Math.max(0, 1 - p);
+        ctx.fillStyle = 'rgba(0,0,0,' + alpha * 0.7 + ')';
+        ctx.fillRect(0, 0, CFG.WIDTH, CFG.HEIGHT);
+    },
+};
+
+// ─── ENHANCED UI TOOLTIP SYSTEM ───────────────────────────────────────
+const TOOLTIP = {
+    text: '',
+    x: 0, y: 0,
+    visible: false,
+    timer: 0,
+    show(text, x, y) { this.text = text; this.x = x; this.y = y; this.visible = true; this.timer = 0; },
+    hide() { this.visible = false; },
+    update(dt) { if (this.visible) this.timer += dt; if (this.timer > 5000) this.hide(); },
+    draw(ctx) {
+        if (!this.visible || !this.text) return;
+        const lines = this.text.split('\n');
+        const maxW = lines.reduce((m, l) => Math.max(m, ctx.measureText ? ctx.measureText(l).width + 20 : l.length * 7 + 20), 0);
+        const h = lines.length * 16 + 10;
+        let tx = Math.min(this.x + 15, CFG.WIDTH - maxW - 10);
+        let ty = Math.min(this.y + 20, CFG.HEIGHT - h - 10);
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,255,255,0.3)';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = 'rgba(0,10,20,0.92)';
+        ctx.strokeStyle = '#0ff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        const r = 4;
+        ctx.moveTo(tx + r, ty); ctx.lineTo(tx + maxW - r, ty);
+        ctx.quadraticCurveTo(tx + maxW, ty, tx + maxW, ty + r);
+        ctx.lineTo(tx + maxW, ty + h - r);
+        ctx.quadraticCurveTo(tx + maxW, ty + h, tx + maxW - r, ty + h);
+        ctx.lineTo(tx + r, ty + h);
+        ctx.quadraticCurveTo(tx, ty + h, tx, ty + h - r);
+        ctx.lineTo(tx, ty + r);
+        ctx.quadraticCurveTo(tx, ty, tx + r, ty);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#0ff'; ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        lines.forEach((l, i) => ctx.fillText(l, tx + 10, ty + 6 + i * 16));
+        ctx.restore();
+    },
+};
+
+// ─── SCREEN SHAKE ──────────────────────────────────────────────────────
+const SHAKE = {
+    x: 0, y: 0,
+    intensity: 0,
+    decay: 0.9,
+    trigger(intensity) { this.intensity = Math.max(this.intensity, intensity || 5); },
+    update() {
+        if (this.intensity < 0.5) { this.x = 0; this.y = 0; return; }
+        this.x = (Math.random() - 0.5) * this.intensity * 2;
+        this.y = (Math.random() - 0.5) * this.intensity * 2;
+        this.intensity *= this.decay;
+    },
+    apply(ctx) {
+        if (this.intensity > 0.5) ctx.translate(this.x, this.y);
+    },
+};
+
+// ─── ENHANCED FLOATING TEXT ───────────────────────────────────────────
+const FLOATING_TEXTS = {
+    items: [],
+    add(text, x, y, color, size, duration) {
+        this.items.push({
+            text, x, y,
+            color: color || '#fff',
+            size: size || 14,
+            life: duration || 1500,
+            maxLife: duration || 1500,
+            vx: (Math.random() - 0.5) * 1.5,
+            vy: -2 - Math.random() * 2,
+        });
+    },
+    update(dt) {
+        this.items.forEach(t => {
+            t.y += t.vy * (dt / 16);
+            t.x += t.vx * (dt / 16);
+            t.life -= dt;
+        });
+        this.items = this.items.filter(t => t.life > 0);
+    },
+    draw(ctx) {
+        this.items.forEach(t => {
+            const alpha = Math.max(0, t.life / t.maxLife);
+            const scale = 1 + (1 - alpha) * 0.5;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = t.color;
+            ctx.font = 'bold ' + Math.floor(t.size * scale) + 'px Orbitron,monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = t.color;
+            ctx.shadowBlur = 8;
+            ctx.fillText(t.text, t.x, t.y);
+            ctx.restore();
+        });
+    },
+};
+
+// ─── AMBIENT BACKGROUND PARTICLES ─────────────────────────────────────
+const AMBIENT = {
+    particles: [],
+    count: 60,
+    speed: 0.3,
+    init() {
+        for (let i = 0; i < this.count; i++) {
+            this.particles.push({
+                x: Math.random() * CFG.WIDTH,
+                y: Math.random() * CFG.HEIGHT,
+                vx: (Math.random() - 0.5) * this.speed,
+                vy: (Math.random() - 0.5) * this.speed - 0.2,
+                size: 0.5 + Math.random() * 1.5,
+                alpha: 0.1 + Math.random() * 0.3,
+                pulse: Math.random() * Math.PI * 2,
+                pulseSpeed: 0.5 + Math.random() * 1.5,
+            });
+        }
+    },
+    update(dt) {
+        const f = dt / 16;
+        this.particles.forEach(p => {
+            p.x += p.vx * f; p.y += p.vy * f;
+            p.pulse += p.pulseSpeed * 0.02 * f;
+            if (p.x < 0) p.x = CFG.WIDTH;
+            if (p.x > CFG.WIDTH) p.x = 0;
+            if (p.y < 0) p.y = CFG.HEIGHT;
+            if (p.y > CFG.HEIGHT) p.y = 0;
+        });
+    },
+    draw(ctx) {
+        this.particles.forEach(p => {
+            const a = p.alpha * (0.6 + 0.4 * Math.sin(p.pulse));
+            ctx.fillStyle = 'rgba(0,255,255,' + a + ')';
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    },
+};
+
+// ─── KEYBOARD SHORTCUTS ───────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+    if (!game) return;
+    const key = e.key.toLowerCase();
+    if (key === 'escape') { game.screen = 'main'; e.preventDefault(); }
+    if (key === 'm') { game.screen = 'map'; e.preventDefault(); }
+    if (key === 'c') { game.screen = 'combat'; e.preventDefault(); }
+    if (key === 'i') { game.screen = 'inventory'; e.preventDefault(); }
+    if (key === 's') { game.screen = 'settings'; e.preventDefault(); }
+    if (key === 'q') { game.screen = 'quests'; e.preventDefault(); }
+    if (key === 'b') { game.screen = 'shop'; e.preventDefault(); }
+    if (key === 't') { game.screen = 'terminal'; e.preventDefault(); }
+    if (key === 'h') { game.screen = 'crafting'; e.preventDefault(); }
+    if (key === '1') { game.screen = 'achievements'; e.preventDefault(); }
+    if (key === '2') { game.screen = 'codex'; e.preventDefault(); }
+    if (key === '3') { game.screen = 'clan'; e.preventDefault(); }
+    if (key === ' ' && game.screen === 'combat') { e.preventDefault(); }
+    if (key === 'f5') { e.preventDefault(); }
+});
+
+// ─── AUTO-SAVE WITH VISUAL INDICATOR ──────────────────────────────────
+const SAVE_INDICATOR = {
+    visible: false,
+    timer: 0,
+    show() { this.visible = true; this.timer = 0; },
+    update(dt) {
+        if (!this.visible) return;
+        this.timer += dt;
+        if (this.timer > 1500) this.visible = false;
+    },
+    draw(ctx) {
+        if (!this.visible) return;
+        const alpha = this.timer < 200 ? this.timer / 200 : Math.max(0, 1 - (this.timer - 200) / 1300);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = '#0ff';
+        ctx.font = '9px Orbitron';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText('💾 SAVED', CFG.WIDTH - 10, 5);
+        ctx.restore();
+    },
+};
+
+// ─── AUTO-SAVE HOOK ───────────────────────────────────────────────────
+let _autoSaveInterval = setInterval(() => {
+    if (game && game.character) {
+        try {
+            localStorage.setItem('neon_protocol_save', JSON.stringify(game.character));
+            SAVE_INDICATOR.show();
+        } catch(e) {}
+    }
+}, 30000);
+
+// ─── ORIGINAL LOOP WRAPPER ────────────────────────────────────────────
+const _origLoop = Game.prototype.loop;
+Game.prototype.loop = function() {
+    const now = performance.now();
+    const dt = Math.min(33, now - (this._lastTime || now));
+    this._lastTime = now;
+    this._fps = this._fps || 0;
+    this._fpsCount = this._fpsCount || 0;
+    this._fpsTime = this._fpsTime || 0;
+    this._fpsCount++;
+    this._fpsTime += dt;
+    if (this._fpsTime >= 1000) { this._fps = this._fpsCount; this._fpsCount = 0; this._fpsTime = 0; }
+    GLITCH.update(dt);
+    TRANSITION.update(dt);
+    SHAKE.update();
+    FLOATING_TEXTS.update(dt);
+    AMBIENT.update(dt);
+    TOOLTIP.update(dt);
+    SAVE_INDICATOR.update(dt);
+    if (_origLoop) _origLoop.call(this);
+    const ctx = this.ctx;
+    ctx.save();
+    SHAKE.apply(ctx);
+    if (this._showFps) {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(CFG.WIDTH - 70, 0, 70, 18);
+        ctx.fillStyle = '#0f0'; ctx.font = '10px monospace'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+        ctx.fillText(this._fps + ' FPS', CFG.WIDTH - 5, 3);
+    }
+    AMBIENT.draw(ctx);
+    FLOATING_TEXTS.draw(ctx);
+    CRT.draw(ctx);
+    GLITCH.apply(ctx);
+    TRANSITION.draw(ctx);
+    SAVE_INDICATOR.draw(ctx);
+    TOOLTIP.draw(ctx);
+    ctx.restore();
+};
+
+// ─── ENHANCED UI METHODS ──────────────────────────────────────────────
+const _origBtn = Game.prototype.ui?.btn || function(){};
+if (Game.prototype.ui) {
+    const _uiPrototype = Game.prototype.ui;
+    const _origBtn2 = _uiPrototype.btn;
+    _uiPrototype.btn = function(x, y, w, h, text, cb, opts) {
+        opts = opts || {};
+        const hoverAlpha = 0.15;
+        const isHover = typeof this._hoverX === 'number' && typeof this._hoverY === 'number'
+            && this._hoverX >= x && this._hoverX <= x + w
+            && this._hoverY >= y && this._hoverY <= y + h;
+        const origBg = opts.bg || 'rgba(0,10,20,0.8)';
+        if (isHover) {
+            opts.bg = opts.hoverBg || 'rgba(0,30,60,0.9)';
+            opts.border = opts.hoverBorder || opts.border || '#0ff';
+            if (opts.color) opts.color = '#fff';
+        }
+        _origBtn2.call(this, x, y, w, h, text, cb, opts);
+        opts.bg = origBg;
+        if (isHover) {
+            this.ctx.fillStyle = 'rgba(0,255,255,0.05)';
+            this.ctx.fillRect(x, y, w, h);
+        }
+    };
+    document.addEventListener('mousemove', (e) => {
+        const rect = game?.canvas?.getBoundingClientRect();
+        if (rect) {
+            _uiPrototype._hoverX = (e.clientX - rect.left) * (CFG.WIDTH / rect.width);
+            _uiPrototype._hoverY = (e.clientY - rect.top) * (CFG.HEIGHT / rect.height);
+        }
+    });
+}
+
+// ─── RESPONSIVE CANVAS ────────────────────────────────────────────────
+(function() {
+    const canvas = document.getElementById('gameCanvas');
+    if (!canvas) return;
+    function resize() {
+        const maxW = window.innerWidth - 20;
+        const maxH = window.innerHeight - 20;
+        const scale = Math.min(1, Math.min(maxW / CFG.WIDTH, maxH / CFG.HEIGHT));
+        canvas.style.width = Math.floor(CFG.WIDTH * scale) + 'px';
+        canvas.style.height = Math.floor(CFG.HEIGHT * scale) + 'px';
+        canvas.style.imageRendering = 'pixelated';
+    }
+    window.addEventListener('resize', resize);
+    resize();
+})();
+
+// ─── HUD OVERLAY INDICATORS ──────────────────────────────────────────
+const HUD = {
+    draw(ctx, character) {
+        const c = character?.character || {};
+        const x = 5, y = CFG.HEIGHT - 75;
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,10,20,0.7)';
+        ctx.fillRect(x, y, 120, 70);
+        ctx.strokeStyle = 'rgba(0,255,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, 120, 70);
+        ctx.fillStyle = '#0ff'; ctx.font = '7px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText('LV.' + (c.level || 1) + ' ' + (c.name || 'NetRunner'), x + 5, y + 4);
+        ctx.fillStyle = '#888'; ctx.font = '6px monospace';
+        ctx.fillText('❤' + (c.hp || 100) + '/' + (c.maxHp || 100), x + 5, y + 18);
+        ctx.fillText('⚡' + (c.energy || 100) + '/' + (c.maxEnergy || 100), x + 5, y + 28);
+        ctx.fillText('💰' + (c.credits || 0), x + 5, y + 38);
+        ctx.fillStyle = '#555'; ctx.font = '6px monospace';
+        ctx.fillText('[' + (game?.screen || 'main') + ']', x + 5, y + 55);
+        ctx.restore();
+    },
+};
+
+const _origRenderMain = Game.prototype.renderMain;
+if (Game.prototype.renderMain) {
+    Game.prototype.renderMain = function() {
+        if (_origRenderMain) _origRenderMain.call(this);
+        if (this.character) HUD.draw(this.ctx, this.character);
+    };
+}
+
+// ─── PERSISTENT STATS / ACHIEVEMENT TRACKER ─────────────────────────
+const STAT_TRACKER = {
+    data: JSON.parse(localStorage.getItem('neon_stats') || '{}'),
+    save() { try { localStorage.setItem('neon_stats', JSON.stringify(this.data)); } catch(e) {} },
+    increment(key, amount) { this.data[key] = (this.data[key] || 0) + (amount || 1); this.save(); },
+    get(key) { return this.data[key] || 0; },
+    getAll() { return { ...this.data }; },
+    reset() { this.data = {}; this.save(); },
+};
+
+// ─── NOTIFICATION STACK ──────────────────────────────────────────────
+const NOTIFY = {
+    queue: [],
+    active: [],
+    maxStack: 4,
+    add(text, color, duration) {
+        this.queue.push({ text, color: color || '#0ff', duration: duration || 2500, life: duration || 2500, y: 0 });
+    },
+    update(dt) {
+        while (this.queue.length > 0 && this.active.length < this.maxStack) {
+            const n = this.queue.shift();
+            n.y = 45 + this.active.length * 28;
+            this.active.push(n);
+        }
+        this.active.forEach(n => { n.life -= dt; n.y += (45 + this.active.indexOf(n) * 28 - n.y) * 0.08; });
+        this.active = this.active.filter(n => n.life > 0);
+    },
+    draw(ctx) {
+        this.active.forEach(n => {
+            const alpha = Math.min(1, n.life / 300);
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = 'rgba(0,10,20,0.85)';
+            ctx.shadowColor = n.color;
+            ctx.shadowBlur = 8;
+            ctx.fillRect(CFG.WIDTH / 2 - 120, n.y, 240, 24);
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = n.color;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(CFG.WIDTH / 2 - 120, n.y, 240, 24);
+            ctx.fillStyle = n.color;
+            ctx.font = '9px Orbitron';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(n.text, CFG.WIDTH / 2, n.y + 12);
+            ctx.restore();
+        });
+    },
+};
+
+const _origNotify = Game.prototype.showNotification;
+if (Game.prototype.showNotification) {
+    Game.prototype.showNotification = function(text, color) {
+        NOTIFY.add(text, color);
+        if (_origNotify) _origNotify.call(this, text, color);
+    };
+}
+
+// ─── ENHANCED START ──────────────────────────────────────────────────
+AMBIENT.init();
 const game = new Game();
+// ─── End Enhancements ────────────────────────────────────────────────
 </script>
 </body>
 </html>
