@@ -3866,8 +3866,8 @@ if (!window.PROGRAMS_CATALOG_FULL) {
     window.IMPLANTS_CATALOG_FULL = {};
 }
 const ITEM_DB_FULL = {
-    programs: Object.assign({}, ...Object.entries(window.PROGRAMS_CATALOG_FULL).map(([k, v]) => ({ [k]: { ...v, id: k, type: 'program' } }))),
-    implants: Object.assign({}, ...Object.entries(window.IMPLANTS_CATALOG_FULL).map(([k, v]) => ({ [k]: { ...v, id: k, type: 'implant' } }))),
+    programs: (() => { const o = {}; for (const [k, v] of Object.entries(window.PROGRAMS_CATALOG_FULL)) o[k] = { ...v, id: k, type: 'program' }; return o; })(),
+    implants: (() => { const o = {}; for (const [k, v] of Object.entries(window.IMPLANTS_CATALOG_FULL)) o[k] = { ...v, id: k, type: 'implant' }; return o; })(),
 };
 
 // ─── Extended Economy Data ───────────────────────────────────────────────
