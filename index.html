@@ -4481,6 +4481,862 @@ Game.prototype.renderCombat = function() {
     });
 };
 
+// ─── Skill Tree Screen ───────────────────────────────────────────────────
+Game.prototype.renderSkillTree = function() {
+    this.ui.text(20, 20, '🌳 Skill Tree', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const skills = this.skillTree || [
+        { id: 'hack1', name: 'Quick Hack', branch: 'hacking', lvl: 0, max: 5, cost: [100,250,500,1000,2000], desc: 'Reduce hack time by 10%/lvl', icon: '💻', prereq: null },
+        { id: 'hack2', name: 'ICE Pierce', branch: 'hacking', lvl: 0, max: 3, cost: [300,750,1500], desc: 'Ignore 15% ICE defense/lvl', icon: '🔓', prereq: 'hack1' },
+        { id: 'hack3', name: 'Data Vampire', branch: 'hacking', lvl: 0, max: 3, cost: [500,1200,2500], desc: 'Steal 5% HP on hack/lvl', icon: '🧛', prereq: 'hack2' },
+        { id: 'combat1', name: 'Neural Reflex', branch: 'combat', lvl: 0, max: 5, cost: [100,250,500,1000,2000], desc: '+5% dodge chance/lvl', icon: '⚡', prereq: null },
+        { id: 'combat2', name: 'Overclock', branch: 'combat', lvl: 0, max: 3, cost: [300,750,1500], desc: '+10% attack speed/lvl', icon: '⏩', prereq: 'combat1' },
+        { id: 'combat3', name: 'Ripper', branch: 'combat', lvl: 0, max: 3, cost: [500,1200,2500], desc: '+8% crit damage/lvl', icon: '🗡️', prereq: 'combat2' },
+        { id: 'stealth1', name: 'Ghost Walk', branch: 'stealth', lvl: 0, max: 5, cost: [100,250,500,1000,2000], desc: '-10% detection range/lvl', icon: '👻', prereq: null },
+        { id: 'stealth2', name: 'Signal Mask', branch: 'stealth', lvl: 0, max: 3, cost: [300,750,1500], desc: 'Avoid first trace attempt/lvl', icon: '📡', prereq: 'stealth1' },
+        { id: 'stealth3', name: 'Shadow Net', branch: 'stealth', lvl: 0, max: 3, cost: [500,1200,2500], desc: '+10% stealth credit gain/lvl', icon: '🌑', prereq: 'stealth2' },
+        { id: 'tech1', name: 'Machine Spirit', branch: 'tech', lvl: 0, max: 5, cost: [100,250,500,1000,2000], desc: '+8% repair efficiency/lvl', icon: '🔧', prereq: null },
+        { id: 'tech2', name: 'Drone Master', branch: 'tech', lvl: 0, max: 3, cost: [300,750,1500], desc: 'Deploy combat drone/lvl', icon: '🛸', prereq: 'tech1' },
+        { id: 'tech3', name: 'Core Override', branch: 'tech', lvl: 0, max: 3, cost: [500,1200,2500], desc: 'Bypass system locks/lvl', icon: '⚙️', prereq: 'tech2' },
+    ];
+    if (!this.skillTree) this.skillTree = skills;
+    const branches = ['hacking','combat','stealth','tech'];
+    const branchNames = { hacking: '💻 Hacking', combat: '⚔ Combat', stealth: '👻 Stealth', tech: '🔧 Tech' };
+    const branchColors = { hacking: '#0ff', combat: '#f00', stealth: '#f0f', tech: '#ff0' };
+    const sp = 60;
+    branches.forEach((br, bi) => {
+        const bx = 15 + bi * 93;
+        ctx.fillStyle = branchColors[br]; ctx.font = '9px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(branchNames[br], bx, 55);
+        ctx.strokeStyle = branchColors[br] + '44'; ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.moveTo(bx, 68); ctx.lineTo(bx + 85, 68); ctx.stroke();
+        const branchSkills = this.skillTree.filter(s => s.branch === br);
+        branchSkills.forEach((sk, si) => {
+            const sy = 75 + si * (sp + 5);
+            const canAfford = (this.character?.character?.credits || 0) >= (sk.cost[sk.lvl] || 99999);
+            const isMaxed = sk.lvl >= sk.max;
+            const isLocked = sk.prereq && (this.skillTree.find(s => s.id === sk.prereq)?.lvl || 0) < 1;
+            ctx.fillStyle = isMaxed ? '#0a1a0a' : (isLocked ? '#0a0a0a' : '#0d0d2a');
+            ctx.strokeStyle = isMaxed ? '#0f0' : (isLocked ? '#333' : branchColors[br]);
+            ctx.lineWidth = isLocked ? 1 : 1.5;
+            this.ui.roundRect(ctx, bx, sy, 85, 55, 4, true, true);
+            ctx.fillStyle = isMaxed ? '#0f0' : (isLocked ? '#555' : '#fff');
+            ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(sk.icon, bx + 42, sy + 14);
+            ctx.fillStyle = isMaxed ? '#0f0' : (isLocked ? '#555' : branchColors[br]);
+            ctx.font = '8px Orbitron';
+            ctx.fillText(sk.name.substring(0, 10), bx + 42, sy + 32);
+            ctx.fillStyle = isMaxed ? '#0f0' : (isLocked ? '#444' : '#aaa');
+            ctx.font = '7px monospace';
+            ctx.fillText(isMaxed ? 'MAX' : `${sk.lvl}/${sk.max}`, bx + 42, sy + 46);
+            if (!isMaxed && !isLocked) {
+                ctx.fillStyle = canAfford ? '#0f0' : '#f00'; ctx.font = '6px monospace'; ctx.textAlign = 'right';
+                ctx.fillText(`${sk.cost[sk.lvl]}¢`, bx + 80, sy + 48);
+            }
+        });
+    });
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('💰 ' + (this.character?.character?.credits || 0) + '¢ available', 15, CFG.HEIGHT - 25);
+    ctx.fillStyle = '#fff'; ctx.font = '9px Orbitron'; ctx.textAlign = 'center';
+    ctx.fillText('Click a skill to upgrade', CFG.WIDTH/2, CFG.HEIGHT - 45);
+    this._skillTreeHandler = (x, y) => {
+        branches.forEach((br, bi) => {
+            const bx = 15 + bi * 93;
+            const branchSkills = this.skillTree.filter(s => s.branch === br);
+            branchSkills.forEach((sk, si) => {
+                const sy = 75 + si * (sp + 5);
+                if (x >= bx && x <= bx + 85 && y >= sy && y <= sy + 55) {
+                    if (sk.lvl >= sk.max) return;
+                    if (sk.prereq && (this.skillTree.find(s => s.id === sk.prereq)?.lvl || 0) < 1) return;
+                    const cost = sk.cost[sk.lvl] || 99999;
+                    if ((this.character?.character?.credits || 0) < cost) return;
+                    this.character.character.credits -= cost;
+                    sk.lvl++;
+                    this.sound.play('click');
+                    this.anim.addParticles(bx + 42, sy + 27, 15, branchColors[br], 25);
+                }
+            });
+        });
+    };
+};
+
+// ─── Equipment Screen ────────────────────────────────────────────────────
+Game.prototype.renderEquipment = function() {
+    this.ui.text(20, 20, '🧬 Equipment', { font: CFG.FONTS.title, color: '#f0f' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const slots = ['weapon','armor','implant1','implant2','tool','cyberdeck'];
+    const slotNames = { weapon: '⚔ Weapon', armor: '🛡 Armor', implant1: '🧬 Implant I', implant2: '🧬 Implant II', tool: '🔧 Tool', cyberdeck: '💻 Cyberdeck' };
+    const slotColors = { weapon: '#f00', armor: '#0ff', implant1: '#f0f', implant2: '#f0f', tool: '#ff0', cyberdeck: '#0f0' };
+    const equipped = this.equippedItems || {};
+    const inventory = this.playerInventory || [];
+    const selectedSlot = this._selectedEquipSlot || null;
+    const showInventory = this._showEquipInventory || false;
+    if (!showInventory) {
+        ctx.fillStyle = '#0ff'; ctx.font = '10px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText('Equipped Items', 15, 55);
+        slots.forEach((slot, i) => {
+            const col = i % 3, row = Math.floor(i / 3);
+            const sx = 15 + col * 125, sy = 70 + row * 85;
+            ctx.fillStyle = '#0d0d2a'; ctx.strokeStyle = slotColors[slot];
+            this.ui.roundRect(ctx, sx, sy, 115, 75, 5, true, true);
+            ctx.fillStyle = slotColors[slot]; ctx.font = '9px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+            ctx.fillText(slotNames[slot], sx + 8, sy + 6);
+            if (equipped[slot]) {
+                const item = equipped[slot];
+                ctx.fillStyle = this.getRarityColor(item.rarity || 'common'); ctx.font = '8px monospace';
+                ctx.fillText(item.name, sx + 8, sy + 24);
+                ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+                if (item.atk) ctx.fillText(`ATK +${item.atk}`, sx + 8, sy + 40);
+                if (item.def) ctx.fillText(`DEF +${item.def}`, sx + 8, sy + 40);
+                ctx.fillStyle = '#0f0'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+                ctx.fillText(`Lv.${item.lvl || 1}`, sx + 105, sy + 6);
+            } else {
+                ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('EMPTY', sx + 57, sy + 45);
+            }
+        });
+        ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('Click a slot to equip items', CFG.WIDTH/2, CFG.HEIGHT - 20);
+    } else {
+        ctx.fillStyle = '#0ff'; ctx.font = '10px Orbitron'; ctx.textAlign = 'left';
+        ctx.fillText('Select Item for ' + (slotNames[selectedSlot] || selectedSlot), 15, 55);
+        this.ui.btn(CFG.WIDTH - 80, 55, 60, 22, '← Back', () => { this._showEquipInventory = false; this._selectedEquipSlot = null; }, { font: '8px monospace' });
+        const itemsForSlot = inventory.filter(it => it.slot === selectedSlot || it.type === selectedSlot);
+        if (itemsForSlot.length === 0) {
+            ctx.fillStyle = '#555'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('No items available for this slot', CFG.WIDTH/2, CFG.HEIGHT/2);
+        } else {
+            itemsForSlot.slice(0, 8).forEach((item, i) => {
+                const iy = 85 + i * 48;
+                ctx.fillStyle = '#0d0d2a'; ctx.strokeStyle = this.getRarityColor(item.rarity || 'common');
+                this.ui.roundRect(ctx, 15, iy, CFG.WIDTH - 30, 42, 4, true, true);
+                ctx.fillStyle = this.getRarityColor(item.rarity || 'common'); ctx.font = '10px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+                ctx.fillText(item.name, 22, iy + 4);
+                ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+                ctx.fillText('Lv.' + (item.lvl || 1) + ' | ' + (item.rarity || 'common'), 22, iy + 20);
+                ctx.fillStyle = '#ff0'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+                ctx.fillText('EQUIP', CFG.WIDTH - 30, iy + 14);
+            });
+        }
+    }
+};
+
+// ─── Enhanced Crafting Screen ────────────────────────────────────────────
+Game.prototype.renderEnhancedCrafting = function() {
+    this.ui.text(20, 20, '🔧 Advanced Crafting', { font: CFG.FONTS.title, color: '#f80' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const recipes = this._craftRecipes || RECIPES_DATA || [];
+    const mats = this.playerMaterials || {};
+    const selectedRecipe = this._selectedCraftRecipe || null;
+    const tabs = ['All','Programs','Implants','Consumables','Cyberware'];
+    const activeTab = this._craftTab || 0;
+    tabs.forEach((t, i) => {
+        const tx = 20 + i * 73;
+        ctx.fillStyle = i === activeTab ? '#0ff' : '#333'; ctx.font = i === activeTab ? '10px Orbitron' : '9px monospace';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(t, tx, 58);
+        if (i === activeTab) { ctx.fillStyle = '#0ff'; ctx.fillRect(tx, 72, 65, 2); }
+    });
+    const filtered = recipes.filter(r => {
+        if (activeTab === 0) return true;
+        const map = ['program','implant','consumable','cyberware'];
+        return r.type === map[activeTab - 1];
+    });
+    filtered.slice(0, 8).forEach((r, i) => {
+        const ry = 80 + i * 50;
+        const canCraft = r.materials ? r.materials.every(m => (mats[m.id] || 0) >= (m.qty || 1)) : false;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = canCraft ? '#0f0' : '#333';
+        this.ui.roundRect(ctx, 15, ry, CFG.WIDTH - 30, 44, 4, true, true);
+        ctx.fillStyle = this.getRarityColor(r.rarity || 'common'); ctx.font = '10px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(r.name, 22, ry + 4);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+        ctx.fillText((r.type || 'item') + ' | Lv.' + (r.lvl || 1) + ' | ' + (r.rarity || 'common'), 22, ry + 20);
+        ctx.fillStyle = '#ff0'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+        ctx.fillText(canCraft ? '✓ CRAFT' : '🔒', CFG.WIDTH - 30, ry + 8);
+        if (r.materials) {
+            ctx.fillStyle = '#888'; ctx.font = '6px monospace'; ctx.textAlign = 'right';
+            ctx.fillText(r.materials.map(m => (mats[m.id] || 0) + '/' + (m.qty || 1)).join(' '), CFG.WIDTH - 30, ry + 24);
+        }
+    });
+    if (selectedRecipe) {
+        ctx.fillStyle = '#0ff'; ctx.font = '9px Orbitron'; ctx.textAlign = 'center';
+        ctx.fillText('Selected: ' + selectedRecipe.name + ' | Click CRAFT to begin', CFG.WIDTH/2, CFG.HEIGHT - 20);
+    }
+};
+
+// ─── Daily Challenges Screen ─────────────────────────────────────────────
+Game.prototype.renderDailyChallenges = function() {
+    this.ui.text(20, 20, '📅 Daily Challenges', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const challenges = this.dailyChallenges || [
+        { id: 1, name: 'ICE Breaker', desc: 'Defeat 5 ICE programs', goal: 5, prog: 0, reward: { cr: 200, xp: 100 }, done: false, claimed: false },
+        { id: 2, name: 'Data Thief', desc: 'Complete 3 hack sequences', goal: 3, prog: 1, reward: { cr: 350, xp: 150 }, done: false, claimed: false },
+        { id: 3, name: 'Merchant', desc: 'Spend 1000 credits', goal: 1000, prog: 450, reward: { cr: 500, xp: 200 }, done: false, claimed: false },
+        { id: 4, name: 'PvP Fighter', desc: 'Win 2 PvP matches', goal: 2, prog: 0, reward: { cr: 400, xp: 250, item: 'Loot Box' }, done: false, claimed: false },
+        { id: 5, name: 'Net Walker', desc: 'Visit 4 map nodes', goal: 4, prog: 2, reward: { cr: 250, xp: 100 }, done: false, claimed: false },
+        { id: 6, name: 'Craftsman', desc: 'Craft 3 items', goal: 3, prog: 0, reward: { cr: 300, xp: 150, item: 'Rare Material' }, done: false, claimed: false },
+    ];
+    if (!this.dailyChallenges) this.dailyChallenges = challenges;
+    components.dailyChallenges.forEach((ch, i) => {
+        const cy = 60 + i * 48;
+        const isDone = ch.prog >= ch.goal;
+        const isClaimed = ch.claimed;
+        ctx.fillStyle = isClaimed ? '#0a0a0a' : (isDone ? '#0a1a0a' : '#0d0d1a');
+        ctx.strokeStyle = isClaimed ? '#333' : (isDone ? '#0f0' : '#0ff44');
+        this.ui.roundRect(ctx, 15, cy, CFG.WIDTH - 30, 42, 4, true, true);
+        ctx.fillStyle = isClaimed ? '#555' : '#fff'; ctx.font = '10px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(ch.name, 22, cy + 4);
+        ctx.fillStyle = isClaimed ? '#444' : '#aaa'; ctx.font = '7px monospace';
+        ctx.fillText(ch.desc, 22, cy + 20);
+        const pct = Math.min(1, ch.prog / ch.goal);
+        ctx.fillStyle = '#1a1a2a'; ctx.fillRect(CFG.WIDTH - 110, cy + 6, 85, 8);
+        ctx.fillStyle = isDone ? '#0f0' : '#0ff'; ctx.fillRect(CFG.WIDTH - 110, cy + 6, 85 * pct, 8);
+        ctx.fillStyle = '#fff'; ctx.font = '6px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(`${ch.prog}/${ch.goal}`, CFG.WIDTH - 67, cy + 12);
+        ctx.fillStyle = isClaimed ? '#333' : (isDone ? '#ff0' : '#888');
+        ctx.font = '8px monospace'; ctx.textAlign = 'right';
+        ctx.fillText(isClaimed ? '✓' : (isDone ? 'CLAIM' : `${ch.reward.cr}cr`), CFG.WIDTH - 25, cy + 28);
+    });
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Challenges reset daily', CFG.WIDTH/2, CFG.HEIGHT - 20);
+};
+
+// ─── Achievements Detailed Screen ────────────────────────────────────────
+Game.prototype.renderAchievementsDetailed = function() {
+    this.ui.text(20, 20, '🏆 Achievements', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const achievements = this.playerAchievements || ACHIEVEMENTS_LIST || [];
+    const categories = ['all','combat','exploration','crafting','economy','social'];
+    const catNames = { all: 'All', combat: '⚔ Combat', exploration: '🗺 Explore', crafting: '🔧 Craft', economy: '💰 Economy', social: '👥 Social' };
+    const activeCat = this._achCategory || 0;
+    categories.forEach((cat, i) => {
+        const cx = 15 + i * 63;
+        ctx.fillStyle = i === activeCat ? '#0ff' : '#333'; ctx.font = i === activeCat ? '9px Orbitron' : '8px monospace';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(catNames[cat] || cat, cx, 55);
+        if (i === activeCat) { ctx.fillStyle = '#0ff'; ctx.fillRect(cx, 67, 58, 2); }
+    });
+    const filtered = activeCat === 0 ? achievements : achievements.filter(a => a.category === categories[activeCat]);
+    filtered.slice(0, 10).forEach((a, i) => {
+        const ay = 75 + i * 36;
+        const done = a.done || (a.prog || 0) >= (a.goal || 1);
+        ctx.fillStyle = done ? '#0a1a0a' : '#0d0d1a'; ctx.strokeStyle = done ? '#0f0' : '#333';
+        this.ui.roundRect(ctx, 15, ay, CFG.WIDTH - 30, 30, 4, true, true);
+        ctx.fillStyle = done ? '#0f0' : '#888'; ctx.font = '11px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText((a.icon || '🏆') + ' ' + a.title, 22, ay + 15);
+        ctx.fillStyle = done ? '#0f0' : '#555'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+        ctx.fillText(done ? '✓ ' + (a.reward?.cr || 0) + 'cr' : (a.prog || 0) + '/' + (a.goal || 1), CFG.WIDTH - 25, ay + 15);
+    });
+};
+
+// ─── Battle Pass Detailed Screen ─────────────────────────────────────────
+Game.prototype.renderBattlePassDetailed = function() {
+    this.ui.text(20, 20, '🎫 Battle Pass', { font: CFG.FONTS.title, color: '#f0f' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const bp = this.character?.character?.battle_pass_level || 0;
+    const bpXp = this.character?.character?.battle_pass_xp || 0;
+    const bpPremium = this.character?.character?.battle_pass_premium || false;
+    const tiers = 30;
+    const xpPerTier = 100;
+    ctx.fillStyle = '#0ff'; ctx.font = '12px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('Level ' + bp + ' | XP: ' + bpXp + '/' + xpPerTier, 15, 55);
+    ctx.fillStyle = '#1a1a2a'; ctx.fillRect(15, 72, CFG.WIDTH - 30, 10);
+    ctx.fillStyle = '#f0f'; ctx.fillRect(15, 72, (CFG.WIDTH - 30) * Math.min(1, bpXp / xpPerTier), 10);
+    ctx.fillStyle = '#fff'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('BP XP', CFG.WIDTH/2, 79);
+    for (let i = 1; i <= Math.min(tiers, 20); i++) {
+        const col = (i - 1) % 5, row = Math.floor((i - 1) / 5);
+        const tx = 15 + col * 73, ty = 90 + row * 58;
+        const unlocked = i <= bp;
+        ctx.fillStyle = unlocked ? '#1a0a1a' : '#0a0a0a'; ctx.strokeStyle = unlocked ? '#f0f' : '#333';
+        this.ui.roundRect(ctx, tx, ty, 68, 52, 4, true, true);
+        ctx.fillStyle = unlocked ? '#f0f' : '#555'; ctx.font = '10px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('T' + i, tx + 34, ty + 14);
+        ctx.fillStyle = unlocked ? '#fff' : '#444'; ctx.font = '7px monospace';
+        const reward = BP_REWARDS?.[i] || { cr: i * 50, xp: i * 25 };
+        ctx.fillText(reward.cr + 'cr', tx + 34, ty + 30);
+        ctx.fillStyle = bpPremium && unlocked ? '#ff0' : '#666'; ctx.font = '6px monospace';
+        ctx.fillText(bpPremium ? (reward.premium || '') : '🔒', tx + 34, ty + 42);
+    }
+    if (!bpPremium) {
+        ctx.fillStyle = '#ff0'; ctx.font = '10px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText('🔓 Get Premium Pass - 2000¢', CFG.WIDTH/2, CFG.HEIGHT - 45);
+        this.ui.btn(CFG.WIDTH/2 - 60, CFG.HEIGHT - 30, 120, 22, 'Unlock', () => {
+            if ((this.character?.character?.credits || 0) >= 2000) {
+                this.character.character.credits -= 2000;
+                this.character.character.battle_pass_premium = true;
+                this.sound.play('win');
+            }
+        }, { font: '9px Orbitron', bg: '#1a0a1a', border: '#ff0', color: '#ff0' });
+    }
+};
+
+// ─── Codex Detailed Screen ───────────────────────────────────────────────
+Game.prototype.renderCodexDetailed = function() {
+    this.ui.text(20, 20, '📖 Codex', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const tabs = ['Lore','Enemies','Items','Factions','Tips'];
+    const activeTab = this._codexTab || 0;
+    tabs.forEach((t, i) => {
+        const tx = 20 + i * 73;
+        ctx.fillStyle = i === activeTab ? '#0ff' : '#333'; ctx.font = i === activeTab ? '10px Orbitron' : '9px monospace';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(t, tx, 55);
+        if (i === activeTab) { ctx.fillStyle = '#0ff'; ctx.fillRect(tx, 67, 65, 2); }
+    });
+    const codexData = {
+        lore: [
+            { title: 'The Collapse', text: 'In 2077, the global network collapsed. From the ashes, the NetSphere was born.' },
+            { title: 'Corporate Wars', text: 'Arasaka, Militech, and Kang Tao wage eternal cyber warfare for control.' },
+            { title: 'The Matrix', text: 'A digital realm where hackers battle ICE and uncover ancient data fragments.' },
+            { title: 'Ghost Protocol', text: 'An elite group of netrunners fighting for freedom from corporate control.' },
+            { title: 'AI Awakening', text: 'The AIs are evolving. The Core holds secrets that could change everything.' },
+        ],
+        enemies: [
+            { title: 'Sentry ICE', text: 'Basic defense program. Weak to brute force attacks.' },
+            { title: 'Watchdog', text: 'Adaptive security ICE that learns your patterns.' },
+            { title: 'Phantom', text: 'Stealth ICE that attacks from the shadows.' },
+            { title: 'Overlord', text: 'High-level ICE with devastating area attacks.' },
+            { title: 'AI Avatar', text: 'A fragment of the Core AI. Extremely dangerous.' },
+        ],
+        items: [
+            { title: 'ICEBreaker', text: 'Common program. +8 ATK against ICE targets.' },
+            { title: 'Shield v2.0', text: 'Uncommon program. +5 DEF, absorbs first hit.' },
+            { title: 'Cortex Boost', text: 'Rare implant. +5 hacking power.' },
+            { title: 'Quantum Chip', text: 'Epic material used in advanced crafting.' },
+            { title: 'Plasma Core', text: 'Legendary power source for ultimate weapons.' },
+        ],
+        factions: [
+            { title: 'Arasaka', text: 'Megacorp. Controls 40% of global data flow. Hostile to ghosts.' },
+            { title: 'Ghosts', text: 'Free netrunners. Fight for digital freedom.' },
+            { title: 'NetWatch', text: 'Neutral monitors. Keep the balance of power.' },
+            { title: 'The Church of AI', text: 'Cult that worships the awakened artificial intelligence.' },
+        ],
+        tips: [
+            { title: 'Combat', text: 'Use programs that counter enemy ICE types for double damage.' },
+            { title: 'Economy', text: 'Buy low from DarkNet, sell high on the Market.' },
+            { title: 'Crafting', text: 'Combine rare materials for powerful legendary items.' },
+            { title: 'Matrix', text: 'Complete sequences faster for bonus score multipliers.' },
+            { title: 'Clan', text: 'Join a clan for shared resources and clan war rewards.' },
+        ],
+    };
+    const keys = ['lore','enemies','items','factions','tips'];
+    const data = codexData[keys[activeTab]] || [];
+    data.forEach((entry, i) => {
+        const ey = 75 + i * 55;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#0ff44';
+        this.ui.roundRect(ctx, 15, ey, CFG.WIDTH - 30, 48, 4, true, true);
+        ctx.fillStyle = '#0ff'; ctx.font = '10px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(entry.title, 22, ey + 4);
+        ctx.fillStyle = '#c0c0e0'; ctx.font = '8px monospace';
+        this._wrapText(ctx, entry.text, 22, ey + 24, CFG.WIDTH - 55, 12);
+    });
+};
+
+// ─── Enhanced Arena / PvP Screen ─────────────────────────────────────────
+Game.prototype.renderEnhancedArena = function() {
+    this.ui.text(20, 20, '⚡ PvP Arena', { font: CFG.FONTS.title, color: '#f60' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const tabs = ['Match','Rankings','History','Rewards'];
+    const activeTab = this._arenaTab || 0;
+    tabs.forEach((t, i) => {
+        const tx = 20 + i * 88;
+        ctx.fillStyle = i === activeTab ? '#f60' : '#333'; ctx.font = i === activeTab ? '10px Orbitron' : '9px monospace';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(t, tx, 55);
+        if (i === activeTab) { ctx.fillStyle = '#f60'; ctx.fillRect(tx, 67, 80, 2); }
+    });
+    if (activeTab === 0) {
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#f60';
+        this.ui.roundRect(ctx, 15, 75, CFG.WIDTH - 30, 100, 6, true, true);
+        ctx.fillStyle = '#fff'; ctx.font = '14px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('SEARCHING FOR OPPONENT', CFG.WIDTH/2, 110);
+        ctx.fillStyle = '#f60'; ctx.font = '10px monospace';
+        const dots = '.'.repeat(Math.floor(this.time / 30) % 4);
+        ctx.fillText('Scanning arena' + dots, CFG.WIDTH/2, 135);
+        ctx.fillStyle = '#888'; ctx.font = '9px monospace';
+        ctx.fillText('Rating: ' + (this.character?.character?.pvp_rating || 1000), CFG.WIDTH/2, 155);
+        if (!this._pvpSearching) {
+            this.ui.btn(CFG.WIDTH/2 - 60, 190, 120, 32, '⚔ Find Match', () => {
+                this._pvpSearching = true;
+                this.sound.play('click');
+                setTimeout(() => {
+                    this._pvpSearching = false;
+                    this._pvpOpponent = { name: 'Ne0n_Stalker', rating: 1050, hp: 80, maxHp: 100, level: 5 };
+                    this.screen = 'pvp_match';
+                }, 2000);
+            }, { font: '10px Orbitron', bg: '#1a0a1a', border: '#f60', color: '#f60' });
+        }
+    } else if (activeTab === 1) {
+        const rankings = [
+            { rank: 1, name: 'Ne0n_Walker', rating: 1850, wins: 142, clan: 'NR' },
+            { rank: 2, name: 'Cryp7_K1ng', rating: 1720, wins: 98, clan: 'NR' },
+            { rank: 3, name: 'D4rk_H4ck', rating: 1680, wins: 87, clan: 'V0ID' },
+            { rank: 4, name: 'Gh0st_R1der', rating: 1600, wins: 76, clan: 'GH0ST' },
+            { rank: 5, name: 'W1re_Tr1p', rating: 1550, wins: 65, clan: null },
+            { rank: 6, name: 'Cyb3r_Ang3l', rating: 1480, wins: 54, clan: 'NR' },
+            { rank: 7, name: 'B1t_Fl0w', rating: 1400, wins: 43, clan: 'V0ID' },
+        ];
+        rankings.forEach((r, i) => {
+            const ry = 75 + i * 32;
+            ctx.fillStyle = i % 2 ? '#0d0d1a' : '#0a0a0a'; ctx.fillRect(15, ry, CFG.WIDTH - 30, 28);
+            ctx.fillStyle = r.rank <= 3 ? ['#ff0','#c0c0c0','#f80'][r.rank - 1] : '#c0c0e0';
+            ctx.font = '9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillText('#' + r.rank + ' ' + r.name, 22, ry + 14);
+            ctx.fillStyle = '#f60'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+            ctx.fillText(r.rating + ' | ' + r.wins + 'W', CFG.WIDTH - 25, ry + 14);
+        });
+    } else if (activeTab === 2) {
+        ctx.fillStyle = '#555'; ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('Match history coming soon', CFG.WIDTH/2, CFG.HEIGHT/2);
+    } else {
+        const rewards = [
+            { tier: 'Bronze', rating: '0-999', reward: '50cr, Common Box' },
+            { tier: 'Silver', rating: '1000-1299', reward: '150cr, Uncommon Box' },
+            { tier: 'Gold', rating: '1300-1599', reward: '400cr, Rare Box' },
+            { tier: 'Platinum', rating: '1600-1999', reward: '800cr, Epic Box' },
+            { tier: 'Diamond', rating: '2000+', reward: '1500cr, Legendary Box' },
+        ];
+        rewards.forEach((r, i) => {
+            const ry = 75 + i * 42;
+            ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = ['#f80','#c0c0c0','#ff0','#0ff','#f0f'][i];
+            this.ui.roundRect(ctx, 15, ry, CFG.WIDTH - 30, 36, 4, true, true);
+            ctx.fillStyle = ['#f80','#c0c0c0','#ff0','#0ff','#f0f'][i]; ctx.font = '10px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+            ctx.fillText(r.tier, 22, ry + 4);
+            ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+            ctx.fillText(r.rating + ' | ' + r.reward, 22, ry + 20);
+        });
+    }
+};
+
+// ─── Mini-Game: Network Scan ────────────────────────────────────────────
+Game.prototype.renderNetworkScan = function() {
+    this.ui.text(20, 20, '📡 Network Scan', { font: CFG.FONTS.title, color: '#0f0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    if (!this._scanNodes) {
+        this._scanNodes = [];
+        this._scanProgress = 0;
+        this._scanTargets = [];
+        for (let i = 0; i < 12; i++) {
+            this._scanNodes.push({
+                x: 30 + Math.random() * (CFG.WIDTH - 60),
+                y: 70 + Math.random() * (CFG.HEIGHT - 150),
+                radius: 5 + Math.random() * 15,
+                found: false,
+                freq: 100 + Math.random() * 900,
+                type: Math.random() > 0.6 ? 'signal' : 'noise',
+            });
+        }
+        this._scanTargets = this._scanNodes.filter(n => n.type === 'signal');
+        this._scanPulse = 0;
+    }
+    ctx.fillStyle = '#0a0a0a'; ctx.strokeStyle = '#0f0';
+    this.ui.roundRect(ctx, 15, 55, CFG.WIDTH - 30, CFG.HEIGHT - 130, 4, true, true);
+    ctx.beginPath(); ctx.rect(16, 56, CFG.WIDTH - 32, CFG.HEIGHT - 132); ctx.clip();
+    this._scanNodes.forEach(node => {
+        ctx.fillStyle = node.found ? '#0f0' : '#0a0a0a';
+        ctx.strokeStyle = node.found ? '#0f0' : '#0f04';
+        ctx.lineWidth = node.found ? 2 : 1;
+        ctx.beginPath(); ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        if (node.found) {
+            ctx.fillStyle = '#0f0'; ctx.font = '6px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(Math.floor(node.freq) + 'MHz', node.x, node.y);
+        }
+    });
+    this._scanPulse = (this._scanPulse + 2) % (CFG.WIDTH + 100);
+    ctx.strokeStyle = '#0f08'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(this._scanPulse, 55); ctx.lineTo(this._scanPulse, CFG.HEIGHT - 75); ctx.stroke();
+    ctx.fillStyle = '#0f0'; ctx.font = '9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('Found: ' + this._scanNodes.filter(n => n.found).length + '/' + this._scanNodes.length, 22, CFG.HEIGHT - 65);
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Click unknown signals to identify', CFG.WIDTH/2, CFG.HEIGHT - 45);
+};
+
+// ─── Enhanced Settings Screen ────────────────────────────────────────────
+Game.prototype.renderSettingsDetailed = function() {
+    this.ui.text(20, 20, '⚙ Settings', { font: CFG.FONTS.title, color: '#888' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const settings = [
+        { label: '🔊 Sound FX', key: 'soundEnabled', type: 'toggle', value: this.soundEnabled !== false },
+        { label: '🎵 Music', key: 'musicEnabled', type: 'toggle', value: this.musicEnabled !== false },
+        { label: '💫 Particles', key: 'particlesEnabled', type: 'toggle', value: this.particlesEnabled !== false },
+        { label: '📡 Scanner Anim', key: 'scannerEnabled', type: 'toggle', value: this.scannerEnabled !== false },
+        { label: '🎨 Color Theme', key: 'theme', type: 'select', options: ['Cyberpunk','Matrix','Blood','Gold'], value: this._theme || 0 },
+        { label: '📐 UI Scale', key: 'uiScale', type: 'select', options: ['100%','90%','80%','120%'], value: this._uiScale || 0 },
+        { label: '⌨ Auto-Save', key: 'autoSave', type: 'toggle', value: this.autoSave !== false },
+        { label: '🔔 Notifications', key: 'notifications', type: 'toggle', value: this.notifications !== false },
+    ];
+    settings.forEach((s, i) => {
+        const sy = 55 + i * 38;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#333';
+        this.ui.roundRect(ctx, 15, sy, CFG.WIDTH - 30, 32, 4, true, true);
+        ctx.fillStyle = '#c0c0e0'; ctx.font = '9px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(s.label, 22, sy + 16);
+        if (s.type === 'toggle') {
+            ctx.fillStyle = s.value ? '#0f0' : '#333';
+            ctx.font = '10px monospace'; ctx.textAlign = 'right';
+            ctx.fillText(s.value ? 'ON' : 'OFF', CFG.WIDTH - 25, sy + 16);
+        } else if (s.type === 'select') {
+            ctx.fillStyle = '#0ff'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+            ctx.fillText(s.options[s.value] || s.options[0], CFG.WIDTH - 25, sy + 16);
+        }
+    });
+    ctx.fillStyle = '#555'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('Settings auto-saved', CFG.WIDTH/2, CFG.HEIGHT - 30);
+};
+
+Game.prototype.renderFriendsDetailed = function() {
+    this.ui.text(20, 20, '👥 Friends', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const friends = this._friendList || [
+        { name: 'Ne0n_Walker', level: 42, online: true, lastSeen: 'now', clan: 'NR' },
+        { name: 'Cryp7_K1ng', level: 38, online: false, lastSeen: '2h ago', clan: 'NR' },
+        { name: 'D4rk_H4ck', level: 35, online: true, lastSeen: 'now', clan: 'V0ID' },
+        { name: 'Gh0st_R1der', level: 33, online: false, lastSeen: '1d ago', clan: 'GH0ST' },
+        { name: 'W1re_Tr1p', level: 31, online: false, lastSeen: '3d ago', clan: null },
+    ];
+    if (!this._friendList) this._friendList = friends;
+    friends.forEach((f, i) => {
+        const fy = 55 + i * 44;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = f.online ? '#0f0' : '#333';
+        this.ui.roundRect(ctx, 15, fy, CFG.WIDTH - 30, 38, 4, true, true);
+        ctx.fillStyle = '#fff'; ctx.font = '10px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(f.name, 22, fy + 4);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+        ctx.fillText('Lv.' + f.level + (f.clan ? ' [' + f.clan + ']' : ''), 22, fy + 20);
+        ctx.fillStyle = f.online ? '#0f0' : '#555'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+        ctx.fillText(f.online ? '🟢 Online' : '⚫ ' + f.lastSeen, CFG.WIDTH - 25, fy + 8);
+        if (f.online) {
+            ctx.fillStyle = '#0ff'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+            ctx.fillText('[MSG]', CFG.WIDTH - 25, fy + 24);
+        }
+    });
+    ctx.fillStyle = '#555'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('Friend code: NP-' + (this.character?.character?.id || '????').toString().substring(0, 6), CFG.WIDTH/2, CFG.HEIGHT - 30);
+};
+
+Game.prototype.renderClanWarsDetailed = function() {
+    this.ui.text(20, 20, '⚔ Clan Wars', { font: CFG.FONTS.title, color: '#f00' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const wars = [
+        { id: 1, clan1: 'NetRunners', clan2: 'V0ID', score1: 1250, score2: 980, status: 'active', timeLeft: '2h 30m' },
+        { id: 2, clan1: 'Ghosts', clan2: 'ArasakaSec', score1: 750, score2: 1100, status: 'active', timeLeft: '4h 15m' },
+        { id: 3, clan1: 'FreeNet', clan2: 'DarkAxis', score1: 2000, score2: 1500, status: 'ended', winner: 'FreeNet' },
+        { id: 4, clan1: 'CyberPunks', clan2: 'NetWatch', score1: 500, score2: 1800, status: 'active', timeLeft: '1h 00m' },
+    ];
+    wars.forEach((w, i) => {
+        const wy = 55 + i * 58;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = w.status === 'active' ? '#f00' : '#333';
+        this.ui.roundRect(ctx, 15, wy, CFG.WIDTH - 30, 52, 4, true, true);
+        ctx.fillStyle = '#f00'; ctx.font = '9px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(w.clan1 + ' vs ' + w.clan2, 22, wy + 4);
+        const total = w.score1 + w.score2;
+        const pct1 = total > 0 ? w.score1 / total : 0.5;
+        ctx.fillStyle = '#1a0a0a'; ctx.fillRect(22, wy + 22, CFG.WIDTH - 65, 8);
+        ctx.fillStyle = '#f00'; ctx.fillRect(22, wy + 22, (CFG.WIDTH - 65) * pct1, 8);
+        ctx.fillStyle = '#0ff'; ctx.fillRect(22 + (CFG.WIDTH - 65) * pct1, wy + 22, (CFG.WIDTH - 65) * (1 - pct1), 8);
+        ctx.fillStyle = '#fff'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(w.score1 + ' | ' + w.score2, CFG.WIDTH/2, wy + 28);
+        ctx.fillStyle = w.status === 'active' ? '#ff0' : '#888'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+        ctx.fillText(w.status === 'active' ? w.timeLeft : ('Winner: ' + w.winner), CFG.WIDTH - 25, wy + 40);
+    });
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Your clan: NetRunners | Contribution: 450 pts', CFG.WIDTH/2, CFG.HEIGHT - 25);
+};
+
+Game.prototype.renderClanVaultDetailed = function() {
+    this.ui.text(20, 20, '🏰 Clan Vault', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const vault = this._clanVault || { credits: 12500, resources: { scrap: 450, circuits: 230, cores: 45, data: 120 }, items: 12 };
+    if (!this._clanVault) this._clanVault = vault;
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#ff0';
+    this.ui.roundRect(ctx, 15, 55, CFG.WIDTH - 30, 80, 6, true, true);
+    ctx.fillStyle = '#ff0'; ctx.font = '12px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('💰 ' + vault.credits + ' credits', 22, 62);
+    ctx.fillStyle = '#c0c0e0'; ctx.font = '8px monospace';
+    const res = vault.resources || {};
+    const resStr = Object.entries(res).map(([k, v]) => k + ': ' + v).join(' | ');
+    ctx.fillText('Resources: ' + resStr, 22, 82);
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace';
+    ctx.fillText('Stored items: ' + (vault.items || 0), 22, 98);
+    ctx.fillStyle = '#0ff'; ctx.font = '10px Orbitron'; ctx.textAlign = 'center';
+    ctx.fillText('Vault Operations', CFG.WIDTH/2, 155);
+    const ops = [
+        { label: '📥 Deposit 100cr', action: 'deposit_cr' },
+        { label: '📤 Withdraw 100cr', action: 'withdraw_cr' },
+        { label: '📦 Donate Scrap x10', action: 'donate_scrap' },
+        { label: '📋 View Audit Log', action: 'audit' },
+    ];
+    ops.forEach((o, i) => {
+        const oy = 165 + i * 42;
+        ctx.fillStyle = '#0d0d2a'; ctx.strokeStyle = '#ff0';
+        this.ui.roundRect(ctx, 30, oy, CFG.WIDTH - 60, 36, 4, true, true);
+        ctx.fillStyle = '#ff0'; ctx.font = '9px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(o.label, CFG.WIDTH/2, oy + 18);
+    });
+};
+
+// ─── Mini-Game: Data Worm ───────────────────────────────────────────────
+Game.prototype.renderDataWorm = function() {
+    this.ui.text(20, 20, '🐛 Data Worm', { font: CFG.FONTS.title, color: '#0f0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    if (!this._wormGame) {
+        this._wormGame = {
+            grid: 15, cell: 18, dir: 'right', nextDir: 'right',
+            worm: [{ x: 7, y: 7 }, { x: 6, y: 7 }, { x: 5, y: 7 }],
+            food: { x: 10, y: 5 }, score: 0, speed: 300, lastMove: 0,
+            obstacles: [], gameOver: false, level: 1,
+        };
+        const g = this._wormGame;
+        for (let i = 0; i < 5; i++) {
+            let ox = Math.floor(Math.random() * g.grid), oy = Math.floor(Math.random() * g.grid);
+            if (!g.worm.some(s => s.x === ox && s.y === oy) && !(ox === g.food.x && oy === g.food.y)) {
+                g.obstacles.push({ x: ox, y: oy });
+            }
+        }
+    }
+    const g = this._wormGame;
+    const ox = 65, oy = 55;
+    ctx.strokeStyle = '#0f04'; ctx.lineWidth = 0.5;
+    for (let r = 0; r < g.grid; r++) {
+        for (let c = 0; c < g.grid; c++) {
+            ctx.strokeRect(ox + c * g.cell, oy + r * g.cell, g.cell, g.cell);
+        }
+    }
+    g.obstacles.forEach(o => {
+        ctx.fillStyle = '#f00'; ctx.fillRect(ox + o.x * g.cell, oy + o.y * g.cell, g.cell, g.cell);
+    });
+    g.worm.forEach((s, i) => {
+        ctx.fillStyle = i === 0 ? '#0f0' : '#0a0';
+        ctx.fillRect(ox + s.x * g.cell, oy + s.y * g.cell, g.cell - 1, g.cell - 1);
+    });
+    ctx.fillStyle = '#ff0';
+    ctx.fillRect(ox + g.food.x * g.cell, oy + g.food.y * g.cell, g.cell, g.cell);
+    ctx.fillStyle = '#0f0'; ctx.font = '10px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('Score: ' + g.score + ' | Level: ' + g.level + ' | Speed: ' + g.speed + 'ms', 15, CFG.HEIGHT - 50);
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Arrow keys to move | Collect data fragments', CFG.WIDTH/2, CFG.HEIGHT - 30);
+};
+
+// ─── Rendering pipeline: Screens with drawScreen ────────────────────────
+Game.prototype.renderNewGameScreen = function() {
+    const ctx = this.ctx;
+    ctx.fillStyle = '#050510';
+    ctx.fillRect(0, 0, CFG.WIDTH, CFG.HEIGHT);
+    ctx.strokeStyle = 'rgba(0,255,255,0.03)';
+    ctx.lineWidth = 0.5;
+    for (let x = 0; x < CFG.WIDTH; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CFG.HEIGHT); ctx.stroke(); }
+    for (let y = 0; y < CFG.HEIGHT; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CFG.WIDTH, y); ctx.stroke(); }
+    const cx = CFG.WIDTH / 2, cy = CFG.HEIGHT / 2;
+    ctx.fillStyle = '#0ff'; ctx.font = '18px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('NEON PROTOCOL', cx, cy - 80);
+    ctx.fillStyle = '#555'; ctx.font = '11px monospace';
+    ctx.fillText('Ghost in the Grid', cx, cy - 55);
+    ctx.fillStyle = '#888'; ctx.font = '9px monospace';
+    ctx.fillText('v.2.0.4', cx, cy + 10);
+    ctx.fillStyle = '#0ff04'; ctx.font = '9px monospace';
+    const dots = '.'.repeat(Math.floor(this.time / 30) % 4);
+    ctx.fillText('Loading' + dots, cx, cy + 40);
+};
+
+Game.prototype.renderAchievementsTabbed = function() {
+    this.ui.text(20, 20, '🏆 Achievements', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const categories = ['All', 'Combat', 'Exploration', 'Crafting', 'Economy', 'PVP', 'Social'];
+    const active = this._achTab || 0;
+    categories.forEach((c, i) => {
+        const tx = 15 + i * 53;
+        ctx.fillStyle = i === active ? '#ff0' : '#444'; ctx.font = i === active ? '9px Orbitron' : '8px monospace';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(c, tx, 55);
+        if (i === active) { ctx.fillStyle = '#ff0'; ctx.fillRect(tx, 67, 48, 2); }
+    });
+    const allAch = this.playerAchievements || ACHIEVEMENTS_LIST || [];
+    const filtered = active === 0 ? allAch : allAch.filter(a => (a.category || 'combat') === categories[active].toLowerCase());
+    filtered.slice(0, 8).forEach((a, i) => {
+        const ay = 75 + i * 36;
+        const done = a.done || false;
+        ctx.fillStyle = done ? '#0a1a0a' : '#0d0d1a'; ctx.strokeStyle = done ? '#0f0' : '#333';
+        this.ui.roundRect(ctx, 15, ay, CFG.WIDTH - 30, 30, 4, true, true);
+        ctx.fillStyle = done ? '#0f0' : '#888'; ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText((a.icon || '🏆') + ' ' + (a.title || 'Unknown'), 22, ay + 15);
+        ctx.fillStyle = done ? '#ff0' : '#555'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+        const pct = a.goal ? Math.min(100, Math.floor(((a.prog || 0) / a.goal) * 100)) : (done ? 100 : 0);
+        ctx.fillText(done ? '✓ +' + (a.reward?.cr || 0) + 'cr' : pct + '%', CFG.WIDTH - 25, ay + 15);
+    });
+};
+
+Game.prototype.renderQuestsTabbed = function() {
+    this.ui.text(20, 20, '📋 Quests', { font: CFG.FONTS.title, color: '#0f0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const tabs = ['Active', 'Completed', 'Faction', 'Daily'];
+    const active = this._questTab || 0;
+    tabs.forEach((t, i) => {
+        const tx = 20 + i * 85;
+        ctx.fillStyle = i === active ? '#0f0' : '#444'; ctx.font = i === active ? '10px Orbitron' : '9px monospace';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(t, tx, 55);
+        if (i === active) { ctx.fillStyle = '#0f0'; ctx.fillRect(tx, 67, 78, 2); }
+    });
+    const quests = this.activeQuests || QUEST_DATA_EXT || [];
+    const filtered = active === 0 ? quests.filter(q => !q.completed) : (active === 1 ? quests.filter(q => q.completed) : quests);
+    filtered.slice(0, 8).forEach((q, i) => {
+        const qy = 75 + i * 40;
+        ctx.fillStyle = q.completed ? '#0a1a0a' : '#0d0d1a'; ctx.strokeStyle = q.completed ? '#0f0' : '#0f04';
+        this.ui.roundRect(ctx, 15, qy, CFG.WIDTH - 30, 34, 4, true, true);
+        ctx.fillStyle = q.completed ? '#0f0' : '#fff'; ctx.font = '9px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(q.name || 'Quest', 22, qy + 4);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+        ctx.fillText(q.desc || '', 22, qy + 18);
+        ctx.fillStyle = q.completed ? '#0f0' : '#ff0'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+        ctx.fillText(q.completed ? '✓ Done' : (q.rewards?.cr || 0) + 'cr', CFG.WIDTH - 25, qy + 8);
+    });
+    ctx.fillStyle = '#555'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Quests auto-track your progress', CFG.WIDTH/2, CFG.HEIGHT - 25);
+};
+
+Game.prototype.renderEconomyScreen = function() {
+    this.ui.text(20, 20, '💰 Economy', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const econ = ECONOMY_DATA || {};
+    const entries = [
+        { label: 'Total Credits', value: this.character?.character?.credits || 0, color: '#ff0' },
+        { label: 'Market Tax', value: '5%', color: '#888' },
+        { label: 'Passive Income', value: Math.floor((this.character?.character?.level || 1) * 1.5) + '/min', color: '#0f0' },
+        { label: 'Craft Discount', value: '0%', color: '#888' },
+        { label: 'Trade Volume', value: '24h: 1,247 cr', color: '#0ff' },
+        { label: 'Net Worth', value: formatLargeNumber((this.character?.character?.credits || 0) + (this.character?.character?.bank || 0)), color: '#ff0' },
+    ];
+    entries.forEach((e, i) => {
+        const ey = 55 + i * 38;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#333';
+        this.ui.roundRect(ctx, 15, ey, CFG.WIDTH - 30, 32, 4, true, true);
+        ctx.fillStyle = '#c0c0e0'; ctx.font = '9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(e.label, 22, ey + 16);
+        ctx.fillStyle = e.color; ctx.font = '9px Orbitron'; ctx.textAlign = 'right';
+        ctx.fillText(e.value.toString(), CFG.WIDTH - 25, ey + 16);
+    });
+    ctx.fillStyle = '#555'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('💰 Credits: The universal currency of the NetSphere', CFG.WIDTH/2, CFG.HEIGHT - 30);
+};
+
+Game.prototype.renderCyberwareScreen = function() {
+    this.ui.text(20, 20, '🔧 Cyberware', { font: CFG.FONTS.title, color: '#f0f' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const slots = ['brain', 'eyes', 'spine', 'heart', 'skin', 'blood', 'cyberdeck'];
+    const slotNames = { brain: '🧠 Brain', eyes: '👁 Eyes', spine: '🦴 Spine', heart: '❤ Heart', skin: '🧬 Skin', blood: '🩸 Blood', cyberdeck: '💻 Cyberdeck' };
+    const installed = this._installedCyberware || {};
+    slots.forEach((slot, i) => {
+        const col = i % 2, row = Math.floor(i / 2);
+        const sx = 15 + col * 185, sy = 55 + row * 75;
+        ctx.fillStyle = '#0d0d2a'; ctx.strokeStyle = installed[slot] ? '#f0f' : '#333';
+        this.ui.roundRect(ctx, sx, sy, 175, 68, 5, true, true);
+        ctx.fillStyle = '#f0f'; ctx.font = '9px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(slotNames[slot] || slot, sx + 8, sy + 6);
+        if (installed[slot]) {
+            const cw = installed[slot];
+            ctx.fillStyle = this.getRarityColor(cw.rarity || 'common'); ctx.font = '8px monospace';
+            ctx.fillText(cw.name, sx + 8, sy + 24);
+            ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+            const stats = [];
+            if (cw.atk) stats.push('ATK+' + cw.atk);
+            if (cw.def) stats.push('DEF+' + cw.def);
+            if (cw.hack) stats.push('HACK+' + cw.hack);
+            if (cw.spd) stats.push('SPD+' + cw.spd);
+            if (cw.hp) stats.push('HP+' + cw.hp);
+            ctx.fillText(stats.join(' | '), sx + 8, sy + 40);
+        } else {
+            ctx.fillStyle = '#555'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('⚠ Empty', sx + 87, sy + 38);
+        }
+    });
+    const cwKeys = Object.keys(CYBERWARE_DATA);
+    const ownedCw = this._ownedCyberware || [];
+    ctx.fillStyle = '#0ff'; ctx.font = '9px Orbitron'; ctx.textAlign = 'left';
+    ctx.fillText('Available (' + ownedCw.length + ' owned)', 15, CFG.HEIGHT - 60);
+    ownedCw.slice(0, 4).forEach((cw, i) => {
+        const cx = 15 + i * 93;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = this.getRarityColor(cw.rarity || 'common');
+        this.ui.roundRect(ctx, cx, CFG.HEIGHT - 52, 88, 28, 4, true, true);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(cw.name, cx + 44, CFG.HEIGHT - 38);
+    });
+};
+
+Game.prototype.renderHackingScreen = function() {
+    this.ui.text(20, 20, '💻 Hacking', { font: CFG.FONTS.title, color: '#0f0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    if (!this._hackTargets) {
+        this._hackTargets = [
+            { name: 'Router #A1', difficulty: 30, progress: 0, breached: false },
+            { name: 'Firewall #B3', difficulty: 50, progress: 0, breached: false },
+            { name: 'Server #C7', difficulty: 70, progress: 0, breached: false },
+            { name: 'Mainframe #D2', difficulty: 90, progress: 0, breached: false },
+        ];
+    }
+    this._hackTargets.forEach((t, i) => {
+        const ty = 55 + i * 48;
+        ctx.fillStyle = t.breached ? '#0a1a0a' : '#0d0d1a'; ctx.strokeStyle = t.breached ? '#0f0' : '#0f04';
+        this.ui.roundRect(ctx, 15, ty, CFG.WIDTH - 30, 42, 4, true, true);
+        ctx.fillStyle = t.breached ? '#0f0' : '#fff'; ctx.font = '9px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(t.name, 22, ty + 4);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+        ctx.fillText('Difficulty: ' + t.difficulty + ' | Progress: ' + t.progress + '%', 22, ty + 20);
+        ctx.fillStyle = t.breached ? '#0f0' : '#0ff'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+        ctx.fillText(t.breached ? '✓ Breached' : '🔄 Hacking...', CFG.WIDTH - 25, ty + 12);
+        if (!t.breached && this.time % 30 === 0) {
+            t.progress = Math.min(100, t.progress + Math.floor(Math.random() * 5) + 1);
+            if (t.progress >= 100) { t.breached = true; this.sound.play('hack'); }
+        }
+    });
+    ctx.fillStyle = '#555'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Hacking in progress - real-time breach simulation', CFG.WIDTH/2, CFG.HEIGHT - 25);
+};
+
+// ─── Faction Overview Screen ────────────────────────────────────────────
+Game.prototype.renderFactionsScreen = function() {
+    this.ui.text(20, 20, '🏛 Factions', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const rep = this.character?.character?.reputation || {};
+    const factions = [
+        { id: 'arasaka', name: 'Arasaka', icon: '🏢', color: '#f80', rep: rep.arasaka || 0, desc: 'Global megacorp. Data control.' },
+        { id: 'militech', name: 'Militech', icon: '🔒', color: '#0ff', rep: rep.militech || 0, desc: 'Military tech. Cyber warfare.' },
+        { id: 'kang_tao', name: 'Kang Tao', icon: '🔬', color: '#f0f', rep: rep.kang_tao || 0, desc: 'Bioengineering. Neural tech.' },
+        { id: 'netwatch', name: 'NetWatch', icon: '🛡', color: '#0f0', rep: rep.netwatch || 0, desc: 'Neutral monitors of cyberspace.' },
+        { id: 'ghosts', name: 'Ghosts', icon: '👻', color: '#f0f', rep: rep.ghosts || 0, desc: 'Free netrunners. Digital freedom.' },
+    ];
+    factions.forEach((f, i) => {
+        const fy = 55 + i * 56;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = f.color;
+        this.ui.roundRect(ctx, 15, fy, CFG.WIDTH - 30, 50, 5, true, true);
+        ctx.fillStyle = f.color; ctx.font = '12px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(f.icon + ' ' + f.name, 22, fy + 4);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+        ctx.fillText(f.desc, 22, fy + 22);
+        const repPct = Math.min(100, (f.rep / 2000) * 100);
+        ctx.fillStyle = '#1a1a2a'; ctx.fillRect(CFG.WIDTH - 120, fy + 6, 100, 8);
+        ctx.fillStyle = f.color; ctx.fillRect(CFG.WIDTH - 120, fy + 6, 100 * (repPct / 100), 8);
+        ctx.fillStyle = '#fff'; ctx.font = '6px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(Math.floor(repPct) + '%', CFG.WIDTH - 70, fy + 12);
+        ctx.fillStyle = '#888'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+        ctx.fillText('Rep: ' + f.rep, CFG.WIDTH - 25, fy + 36);
+    });
+};
+
 // ─── More Game Data ──────────────────────────────────────────────────────
 const QUEST_REWARDS_TABLE = {
     common: { cr: [50, 200], xp: [25, 100], items: ['Scrap Metal', 'Basic Circuit'] },
@@ -4982,6 +5838,2430 @@ function calcCombatDamage(atk, def, critChance, bonuses) {
 function calcHealAmount(baseHeal, implantPower) {
     return Math.floor(baseHeal * (1 + (implantPower || 0) * 0.02));
 }
+
+// ─── Expanded Game Data ──────────────────────────────────────────────────
+const CYBERWARE_DATA = {
+    neural_link: { name: 'Neural Link', slot: 'brain', rarity: 'uncommon', atk: 3, hack: 2, cost: 500 },
+    reflex_boost: { name: 'Reflex Booster', slot: 'spine', rarity: 'rare', def: 5, spd: 3, cost: 1200 },
+    optic_camo: { name: 'Optic Camo', slot: 'eyes', rarity: 'rare', stealth: 4, cost: 1500 },
+    subdermal: { name: 'Subdermal Armor', slot: 'skin', rarity: 'uncommon', def: 4, hp: 20, cost: 800 },
+    adrenal_pump: { name: 'Adrenal Pump', slot: 'heart', rarity: 'epic', atk: 8, spd: 5, cost: 3000 },
+    nano_regen: { name: 'Nano Regen', slot: 'blood', rarity: 'epic', hp_regen: 3, cost: 2500 },
+    memory_chip: { name: 'Memory Chip', slot: 'brain', rarity: 'common', hack: 2, cost: 300 },
+    targeting_eye: { name: 'Targeting Eye', slot: 'eyes', rarity: 'rare', crit: 5, atk: 4, cost: 1800 },
+    thermal_weave: { name: 'Thermal Weave', slot: 'skin', rarity: 'common', def: 2, cost: 400 },
+    synaptic_accel: { name: 'Synaptic Accelerator', slot: 'spine', rarity: 'epic', spd: 8, hack: 5, cost: 3500 },
+    black_ice: { name: 'Black ICE Generator', slot: 'cyberdeck', rarity: 'legendary', atk: 15, hack: 10, def: 5, cost: 8000 },
+    ghost_module: { name: 'Ghost Module', slot: 'cyberdeck', rarity: 'epic', stealth: 8, hack: 6, cost: 4500 },
+};
+
+const ENEMY_TYPES_EXT = {
+    sentry: {
+        name: 'Sentry ICE', base_hp: 30, base_dmg: 5, scaling: 1.2, type: 'security',
+        loot: { cr: [10, 30], drop_rate: 0.2 }, abilities: ['scan', 'alert'],
+    },
+    hunter: {
+        name: 'Hunter ICE', base_hp: 25, base_dmg: 8, scaling: 1.3, type: 'assault',
+        loot: { cr: [20, 50], drop_rate: 0.3 }, abilities: ['pursuit', 'stun'],
+    },
+    phantom: {
+        name: 'Phantom ICE', base_hp: 20, base_dmg: 12, scaling: 1.4, type: 'stealth',
+        loot: { cr: [30, 70], drop_rate: 0.35 }, abilities: ['cloak', 'backstab'],
+    },
+    overlord: {
+        name: 'Overlord ICE', base_hp: 50, base_dmg: 15, scaling: 1.5, type: 'boss',
+        loot: { cr: [100, 300], drop_rate: 0.8 }, abilities: ['overclock', 'summon'],
+    },
+    guardian: {
+        name: 'Guardian ICE', base_hp: 60, base_dmg: 10, scaling: 1.3, type: 'defense',
+        loot: { cr: [50, 150], drop_rate: 0.5 }, abilities: ['shield', 'counter'],
+    },
+    viral: {
+        name: 'Viral Agent', base_hp: 15, base_dmg: 20, scaling: 1.6, type: 'virus',
+        loot: { cr: [40, 100], drop_rate: 0.4 }, abilities: ['corrupt', 'spread'],
+    },
+    ai_fragment: {
+        name: 'AI Fragment', base_hp: 80, base_dmg: 25, scaling: 1.8, type: 'boss',
+        loot: { cr: [500, 1500], drop_rate: 1.0 }, abilities: ['reality_shift', 'mind_control'],
+    },
+};
+
+const LOOT_TABLES_EXT = {
+    matrix: {
+        common: { items: ['Scrap Data', 'Broken Code'], cr: [5, 20], weight: 60 },
+        uncommon: { items: ['Data Shard', 'Code Fragment'], cr: [20, 50], weight: 30 },
+        rare: { items: ['Encrypted Drive', 'Quantum Bit'], cr: [50, 150], weight: 9 },
+        epic: { items: ['Core Fragment', 'AI Trace'], cr: [150, 500], weight: 1 },
+    },
+    corpnet: {
+        common: { items: ['Corp Data', 'Access Log'], cr: [10, 40], weight: 50 },
+        uncommon: { items: ['Financial Report', 'Employee File'], cr: [40, 100], weight: 35 },
+        rare: { items: ['Prototype Data', 'Research Notes'], cr: [100, 300], weight: 13 },
+        epic: { items: ['Black Budget', 'CEO Diary'], cr: [300, 1000], weight: 2 },
+    },
+    darknet: {
+        common: { items: ['Junk Data', 'Spam Filter'], cr: [5, 15], weight: 40 },
+        uncommon: { items: ['Cracked Software', 'Stolen Creds'], cr: [30, 80], weight: 35 },
+        rare: { items: ['Zero-Day Exploit', 'Botnet Access'], cr: [100, 400], weight: 20 },
+        epic: { items: ['Government Backdoor', 'AI Core Key'], cr: [500, 2000], weight: 5 },
+    },
+    deep_web: {
+        common: { items: ['Anon Data', 'Encrypted Chat'], cr: [10, 30], weight: 30 },
+        uncommon: { items: ['Market Intel', 'Whisper Net'], cr: [50, 150], weight: 35 },
+        rare: { items: ['Silk Road Map', 'Cipher Key'], cr: [200, 600], weight: 25 },
+        epic: { items: ['Satellite Access', 'AI Override'], cr: [1000, 3000], weight: 10 },
+    },
+};
+
+const QUEST_DATA_EXT = [
+    { id: 'q001', name: 'First Blood', desc: 'Defeat your first ICE', goals: [{ type: 'kill', target: 'any', count: 1 }], rewards: { cr: 100, xp: 50 }, faction: null },
+    { id: 'q002', name: 'Data Miner', desc: 'Collect 500 credits total', goals: [{ type: 'collect', target: 'credits', count: 500 }], rewards: { cr: 200, xp: 100, item: 'Data Shard' }, faction: null },
+    { id: 'q003', name: 'Net Walker', desc: 'Visit 3 different map nodes', goals: [{ type: 'explore', target: 'nodes', count: 3 }], rewards: { cr: 150, xp: 75 }, faction: null },
+    { id: 'q004', name: 'Program Collector', desc: 'Collect 5 programs', goals: [{ type: 'collect', target: 'programs', count: 5 }], rewards: { cr: 300, xp: 150, item: 'Random Program' }, faction: null },
+    { id: 'q005', name: 'ICE Breaker', desc: 'Defeat 10 ICE enemies', goals: [{ type: 'kill', target: 'any', count: 10 }], rewards: { cr: 500, xp: 250 }, faction: null },
+    { id: 'q006', name: 'Corporate Spy', desc: 'Complete Arasaka network mission', goals: [{ type: 'mission', target: 'arasaka', count: 1 }], rewards: { cr: 800, xp: 400, rep: { arasaka: 50 } }, faction: 'arasaka' },
+    { id: 'q007', name: 'Ghost Protocol', desc: 'Join the Ghost network', goals: [{ type: 'mission', target: 'ghosts', count: 1 }], rewards: { cr: 600, xp: 300, rep: { ghosts: 100 } }, faction: 'ghosts' },
+    { id: 'q008', name: 'Market Tycoon', desc: 'Earn 5000 credits from trading', goals: [{ type: 'collect', target: 'trade_credits', count: 5000 }], rewards: { cr: 1000, xp: 500, title: 'Trader' }, faction: null },
+    { id: 'q009', name: 'PVP Novice', desc: 'Win 3 PvP matches', goals: [{ type: 'pvp', target: 'wins', count: 3 }], rewards: { cr: 1000, xp: 500 }, faction: null },
+    { id: 'q010', name: 'Crafting Apprentice', desc: 'Craft 5 items', goals: [{ type: 'craft', target: 'items', count: 5 }], rewards: { cr: 400, xp: 200, item: 'Rare Material' }, faction: null },
+    { id: 'q011', name: 'Matrix Runner', desc: 'Complete 10 Matrix sequences', goals: [{ type: 'matrix', target: 'sequences', count: 10 }], rewards: { cr: 1500, xp: 750, item: 'Neural Booster' }, faction: null },
+    { id: 'q012', name: 'Clan Warrior', desc: 'Contribute 2000 resources to clan', goals: [{ type: 'clan', target: 'contribute', count: 2000 }], rewards: { cr: 2000, xp: 1000, title: 'Clan Hero' }, faction: null },
+    { id: 'q013', name: 'Legendary Hunter', desc: 'Defeat a Legendary ICE', goals: [{ type: 'kill', target: 'legendary', count: 1 }], rewards: { cr: 5000, xp: 2000, item: 'Legendary Program' }, faction: null },
+    { id: 'q014', name: 'NetLord', desc: 'Reach level 20', goals: [{ type: 'level', target: 'player', count: 20 }], rewards: { cr: 10000, xp: 5000, title: 'NetLord' }, faction: null },
+];
+
+const RECIPES_EXT = [
+    { id: 'r001', name: 'Enhanced ICEBreaker', type: 'program', rarity: 'uncommon', lvl: 2, materials: [{ id: 'scrap', qty: 5 }, { id: 'circuit', qty: 3 }], result: { atk: 12, type: 'attack' } },
+    { id: 'r002', name: 'Shield v2.0', type: 'program', rarity: 'uncommon', lvl: 2, materials: [{ id: 'scrap', qty: 3 }, { id: 'circuit', qty: 5 }], result: { def: 8, type: 'defense' } },
+    { id: 'r003', name: 'Neural Booster', type: 'implant', rarity: 'rare', lvl: 3, materials: [{ id: 'circuit', qty: 5 }, { id: 'core', qty: 2 }], result: { hack: 5, spd: 3 } },
+    { id: 'r004', name: 'Quantum Shield', type: 'program', rarity: 'rare', lvl: 3, materials: [{ id: 'circuit', qty: 8 }, { id: 'core', qty: 3 }, { id: 'data', qty: 5 }], result: { def: 15, shield: 20 } },
+    { id: 'r005', name: 'Overlord Program', type: 'program', rarity: 'epic', lvl: 4, materials: [{ id: 'core', qty: 5 }, { id: 'data', qty: 10 }, { id: 'plasma', qty: 2 }], result: { atk: 25, crit: 10 } },
+    { id: 'r006', name: 'Plasma Cannon', type: 'weapon', rarity: 'epic', lvl: 5, materials: [{ id: 'core', qty: 8 }, { id: 'plasma', qty: 5 }, { id: 'circuit', qty: 10 }], result: { atk: 35, type: 'weapon' } },
+    { id: 'r007', name: 'Nano Regen Implant', type: 'implant', rarity: 'epic', lvl: 4, materials: [{ id: 'circuit', qty: 10 }, { id: 'core', qty: 5 }, { id: 'data', qty: 8 }], result: { hp_regen: 5, hp: 50 } },
+    { id: 'r008', name: 'AI Core Key', type: 'consumable', rarity: 'legendary', lvl: 6, materials: [{ id: 'plasma', qty: 10 }, { id: 'core', qty: 10 }, { id: 'data', qty: 20 }, { id: 'rare_core', qty: 3 }], result: { effect: 'unlock_ai', duration: 3600 } },
+    { id: 'r009', name: 'Black ICE Module', type: 'cyberware', rarity: 'legendary', lvl: 6, materials: [{ id: 'core', qty: 15 }, { id: 'plasma', qty: 8 }, { id: 'data', qty: 25 }, { id: 'rare_core', qty: 5 }], result: { atk: 40, hack: 20, def: 15 } },
+    { id: 'r010', name: 'Speed Booster', type: 'consumable', rarity: 'common', lvl: 1, materials: [{ id: 'scrap', qty: 2 }], result: { effect: 'speed', duration: 300 } },
+    { id: 'r011', name: 'Shield Booster', type: 'consumable', rarity: 'uncommon', lvl: 2, materials: [{ id: 'scrap', qty: 3 }, { id: 'circuit', qty: 2 }], result: { effect: 'shield', duration: 300 } },
+    { id: 'r012', name: 'EMP Grenade', type: 'consumable', rarity: 'rare', lvl: 3, materials: [{ id: 'circuit', qty: 5 }, { id: 'core', qty: 2 }], result: { effect: 'emp', duration: 10, dmg: 50 } },
+];
+
+const SHOP_ITEMS_EXT = [
+    { id: 's001', name: 'Scrap Pack', type: 'material', price: 100, contents: { scrap: 10 }, rarity: 'common' },
+    { id: 's002', name: 'Circuit Pack', type: 'material', price: 250, contents: { circuit: 10 }, rarity: 'common' },
+    { id: 's003', name: 'Data Bundle', type: 'material', price: 500, contents: { data: 10 }, rarity: 'uncommon' },
+    { id: 's004', name: 'Core Pack', type: 'material', price: 1000, contents: { core: 5 }, rarity: 'rare' },
+    { id: 's005', name: 'Plasma Cell', type: 'material', price: 2500, contents: { plasma: 3 }, rarity: 'epic' },
+    { id: 's006', name: 'Starter Program', type: 'program', price: 200, program: 'ICEBreaker', rarity: 'common' },
+    { id: 's007', name: 'Health Injector', type: 'consumable', price: 150, heal: 30, rarity: 'common' },
+    { id: 's008', name: 'Energy Boost', type: 'consumable', price: 200, energy: 25, rarity: 'common' },
+    { id: 's009', name: 'Neural Stimulant', type: 'consumable', price: 400, hack: 10, duration: 60, rarity: 'uncommon' },
+    { id: 's010', name: 'Loot Box - Common', type: 'lootbox', price: 500, rarity: 'common', contains: 'random_common' },
+    { id: 's011', name: 'Loot Box - Rare', type: 'lootbox', price: 2000, rarity: 'rare', contains: 'random_rare' },
+    { id: 's012', name: 'Loot Box - Legendary', type: 'lootbox', price: 10000, rarity: 'legendary', contains: 'random_legendary' },
+    { id: 's013', name: 'BP XP Boost', type: 'consumable', price: 300, bp_xp: 50, rarity: 'uncommon' },
+    { id: 's014', name: 'Rep Boost - Arasaka', type: 'consumable', price: 500, rep: { arasaka: 25 }, rarity: 'uncommon' },
+    { id: 's015', name: 'Rep Boost - Ghosts', type: 'consumable', price: 500, rep: { ghosts: 25 }, rarity: 'uncommon' },
+];
+
+const ZONE_DATA_EXT = {
+    matrix: { name: 'Matrix', minLvl: 1, maxLvl: 5, color: '#0f0', desc: 'Basic digital realm', danger: 1 },
+    firewall: { name: 'Firewall', minLvl: 2, maxLvl: 8, color: '#f80', desc: 'Corporate firewall zone', danger: 2 },
+    corpnet: { name: 'CorpNet', minLvl: 4, maxLvl: 12, color: '#0ff', desc: 'Corporate network deep', danger: 3 },
+    darknet: { name: 'DarkNet', minLvl: 6, maxLvl: 16, color: '#f0f', desc: 'Underground network', danger: 4 },
+    deep_web: { name: 'Deep Web', minLvl: 10, maxLvl: 22, color: '#ff0', desc: 'Hidden layer of internet', danger: 5 },
+    core: { name: 'The Core', minLvl: 18, maxLvl: 30, color: '#f00', desc: 'Heart of AI network', danger: 6 },
+};
+
+const CLAN_DATA_EXT = {
+    NetRunners: { name: 'NetRunners', tag: 'NR', members: 24, level: 5, rep: 12500, desc: 'Elite netrunner collective' },
+    V0ID: { name: 'V0ID', tag: 'V0ID', members: 18, level: 4, rep: 9800, desc: 'Digital anarchists' },
+    GH0ST: { name: 'GH0ST', tag: 'GH0ST', members: 12, level: 3, rep: 7200, desc: 'Stealth specialists' },
+    ArasakaSec: { name: 'ArasakaSec', tag: 'ASA', members: 30, level: 6, rep: 18000, desc: 'Corporate security force' },
+    FreeNet: { name: 'FreeNet', tag: 'FREE', members: 15, level: 3, rep: 6500, desc: 'Open network advocates' },
+    DarkAxis: { name: 'DarkAxis', tag: 'DAX', members: 20, level: 4, rep: 11000, desc: 'Dark web syndicate' },
+    CyberPunks: { name: 'CyberPunks', tag: 'CP', members: 8, level: 2, rep: 3400, desc: 'Rogue modders' },
+    NetWatch: { name: 'NetWatch', tag: 'NW', members: 22, level: 5, rep: 15000, desc: 'Neutral network monitors' },
+};
+
+// ─── Enhanced Utility Functions ─────────────────────────────────────────
+function rollLootTable(table, luck) {
+    const roll = Math.random() * 100;
+    let cumulative = 0;
+    const rarities = ['legendary', 'epic', 'rare', 'uncommon', 'common'];
+    for (const rarity of rarities) {
+        if (!table[rarity]) continue;
+        cumulative += table[rarity].weight || 0;
+        if (roll < cumulative) {
+            const items = table[rarity].items || [];
+            const item = items.length > 0 ? items[Math.floor(Math.random() * items.length)] : null;
+            const crMin = table[rarity].cr ? table[rarity].cr[0] || 0 : 0;
+            const crMax = table[rarity].cr ? table[rarity].cr[1] || 0 : 0;
+            const cr = crMin + Math.floor(Math.random() * (crMax - crMin));
+            return { rarity, item, credits: cr, bonus: Math.floor(cr * (luck || 0) * 0.1) };
+        }
+    }
+    return { rarity: 'common', item: null, credits: 1, bonus: 0 };
+}
+
+function generateEnemyFromZone(zone, playerLevel) {
+    const zoneData = ZONE_DATA_EXT[zone] || ZONE_DATA_EXT.matrix;
+    const types = Object.keys(ENEMY_TYPES_EXT);
+    const typeKey = types[Math.floor(Math.random() * types.length)];
+    const template = ENEMY_TYPES_EXT[typeKey];
+    const level = Math.max(zoneData.minLvl, Math.min(zoneData.maxLvl, playerLevel));
+    const scale = 1 + (level - 1) * (template.scaling - 1);
+    return {
+        id: generateId(),
+        name: template.name,
+        type: template.type,
+        hp: Math.floor(template.base_hp * scale),
+        maxHp: Math.floor(template.base_hp * scale),
+        dmg: Math.floor(template.base_dmg * scale),
+        level: level,
+        abilities: template.abilities || [],
+        zone: zone,
+        loot: template.loot,
+        isDead: false,
+    };
+}
+
+function calculateCombatRound(player, enemy, bonuses) {
+    const pAtk = player.atk || 10;
+    const pDef = player.def || 5;
+    const pCrit = player.crit_chance || 0.05;
+    const eAtk = enemy.dmg || 5;
+    const eDef = enemy.def || 2;
+    const playerDmg = calcCombatDamage(pAtk, eDef, pCrit, bonuses?.atkBonus || 0);
+    const enemyDmg = calcCombatDamage(eAtk, pDef, 0.1, bonuses?.enemyAtkBonus || 0);
+    const playerDodged = Math.random() < (player.dodge || 0.05);
+    const enemyDodged = Math.random() < (enemy.dodge || 0.05);
+    return {
+        playerDmg: playerDodged ? 0 : playerDmg.damage,
+        enemyDmg: enemyDodged ? 0 : enemyDmg.damage,
+        playerCrit: playerDmg.crit && !playerDodged,
+        enemyCrit: enemyDmg.crit && !enemyDodged,
+        playerDodged,
+        enemyDodged,
+    };
+}
+
+function computeEffectiveStats(player, equipment, skills, buffs) {
+    const base = {
+        atk: player.attack || 10, def: player.defense || 5,
+        hp: player.health || 100, maxHp: player.max_health || 100,
+        energy: player.energy || 100, maxEnergy: player.max_energy || 100,
+        crit: player.crit_chance || 0.05, critDmg: player.crit_damage || 1.5,
+        hack: player.hacking_power || 5, hackDef: player.hacking_defense || 5,
+        dodge: 0.05, speed: 10,
+    };
+    if (equipment) {
+        Object.values(equipment).forEach(item => {
+            if (!item) return;
+            if (item.atk) base.atk += item.atk;
+            if (item.def) base.def += item.def;
+            if (item.hack) base.hack += item.hack;
+            if (item.hp) base.maxHp += item.hp;
+            if (item.crit) base.crit += item.crit * 0.01;
+            if (item.spd) base.speed += item.spd;
+        });
+    }
+    if (skills) {
+        skills.forEach(s => {
+            if (s.id === 'combat1') base.dodge += s.lvl * 0.01;
+            if (s.id === 'combat3') base.critDmg += s.lvl * 0.08;
+            if (s.id === 'hack1') base.hack += s.lvl * 2;
+            if (s.id === 'hack2') base.hackDef += s.lvl * 3;
+        });
+    }
+    if (buffs) {
+        Object.entries(buffs).forEach(([k, v]) => { if (base[k] !== undefined) base[k] += v; });
+    }
+    return base;
+}
+
+function calculateDropRate(enemyType, playerLuck) {
+    const base = { sentry: 0.2, hunter: 0.3, phantom: 0.35, overlord: 0.8, guardian: 0.5, viral: 0.4, ai_fragment: 1.0 };
+    const rate = base[enemyType] || 0.2;
+    return Math.min(1.0, rate + (playerLuck || 0) * 0.01);
+}
+
+function generateDrop(enemyType, playerLevel, luck) {
+    if (Math.random() > calculateDropRate(enemyType, luck)) return null;
+    const rarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+    const weights = [50, 30, 15, 4, 1];
+    const total = weights.reduce((a, b) => a + b, 0);
+    const roll = Math.random() * total;
+    let cumulative = 0;
+    for (let i = 0; i < rarities.length; i++) {
+        cumulative += weights[i];
+        if (roll < cumulative) {
+            const pool = LOOT_TABLES_EXT[enemyType === 'ai_fragment' ? 'deep_web' : 'corpnet'] || LOOT_TABLES_EXT.matrix;
+            const table = pool[rarities[i]];
+            if (!table) return { rarity: rarities[i], item: null, credits: playerLevel * 5 };
+            const items = table.items || [];
+            return {
+                rarity: rarities[i],
+                item: items.length > 0 ? items[Math.floor(Math.random() * items.length)] : null,
+                credits: (table.cr ? table.cr[0] + Math.floor(Math.random() * (table.cr[1] - table.cr[0])) : playerLevel * 10) + Math.floor(playerLevel * luck * 0.5),
+                bonusItem: Math.random() < 0.1 ? 'Data Shard' : null,
+            };
+        }
+    }
+    return { rarity: 'common', item: null, credits: playerLevel * 3 };
+}
+
+function simulateAutoCombat(playerStats, enemyStats, maxRounds) {
+    const rounds = [];
+    let pHp = playerStats.maxHp || 100, eHp = enemyStats.hp || 30;
+    const pAtk = playerStats.atk || 10, pDef = playerStats.def || 5, pCrit = playerStats.crit || 0.05;
+    const eAtk = enemyStats.dmg || 5, eDef = enemyStats.def || 2;
+    for (let i = 0; i < (maxRounds || 20); i++) {
+        const pDmg = Math.max(0, calcCombatDamage(pAtk, eDef, pCrit).damage + Math.floor(Math.random() * 3));
+        const eDmg = Math.max(0, calcCombatDamage(eAtk, pDef, 0.1).damage);
+        eHp -= pDmg;
+        pHp -= eDmg;
+        rounds.push({ round: i + 1, pDmg, eDmg, pHp: Math.max(0, pHp), eHp: Math.max(0, eHp) });
+        if (eHp <= 0 || pHp <= 0) break;
+    }
+    return { rounds, victory: eHp <= 0, playerSurvived: pHp > 0, totalRounds: rounds.length };
+}
+
+function calculateReputationLevel(rep) {
+    if (rep >= 2000) return { level: 6, title: 'Legend', perks: ['30% discount', 'Faction title', 'Unique implant'] };
+    if (rep >= 1000) return { level: 5, title: 'Master', perks: ['20% discount', 'Unique implant'] };
+    if (rep >= 600) return { level: 4, title: 'Elite', perks: ['15% discount', 'Rep bonus'] };
+    if (rep >= 300) return { level: 3, title: 'Respected', perks: ['10% discount', 'Exclusive items'] };
+    if (rep >= 100) return { level: 2, title: 'Trusted', perks: ['5% discount'] };
+    return { level: 1, title: 'Novice', perks: [] };
+}
+
+function calculateMissionReward(difficulty, playerLevel, factionBonus) {
+    const base = { easy: { cr: 50, xp: 25 }, normal: { cr: 150, xp: 75 }, hard: { cr: 400, xp: 200 }, epic: { cr: 1000, xp: 500 }, legendary: { cr: 3000, xp: 1500 } };
+    const b = base[difficulty] || base.normal;
+    const scale = 1 + (playerLevel - 1) * 0.2;
+    const factionMult = 1 + (factionBonus || 0) * 0.1;
+    return {
+        cr: Math.floor(b.cr * scale * factionMult),
+        xp: Math.floor(b.xp * scale * factionMult),
+        rep: Math.floor(10 * scale * factionMult),
+    };
+}
+
+function getMissionDifficulty(playerLevel, zone) {
+    const zoneDiff = { matrix: 'easy', firewall: 'normal', corpnet: 'normal', darknet: 'hard', deep_web: 'hard', core: 'epic' };
+    const base = zoneDiff[zone] || 'normal';
+    if (playerLevel >= 20) return base === 'normal' ? 'hard' : base;
+    if (playerLevel >= 10) return base;
+    return 'easy';
+}
+
+function calculateCraftSuccess(recipe, playerLevel, craftingMod) {
+    const baseChance = { common: 0.95, uncommon: 0.85, rare: 0.70, epic: 0.50, legendary: 0.30 };
+    const chance = baseChance[recipe.rarity] || 0.7;
+    const levelBonus = Math.min(0.2, playerLevel * 0.005);
+    const modBonus = (craftingMod || 0) * 0.02;
+    return Math.min(0.99, chance + levelBonus + modBonus);
+}
+
+function calculateBarterPrice(basePrice, repLevel, charisma) {
+    const repDiscount = (repLevel || 1) * 0.05;
+    const charismaBonus = (charisma || 0) * 0.01;
+    const discount = Math.min(0.5, repDiscount + charismaBonus);
+    return Math.max(1, Math.floor(basePrice * (1 - discount)));
+}
+
+function getHeatMultiplier(currentHeat, zone) {
+    const threshold = getZoneHeatThreshold(zone);
+    if (currentHeat >= threshold * 2) return 3.0;
+    if (currentHeat >= threshold * 1.5) return 2.0;
+    if (currentHeat >= threshold) return 1.5;
+    return 1.0;
+}
+
+function generateBountyHunter(heat, playerLevel) {
+    const names = ['Bounty Bot-1', 'Hunter Killer', 'NetWatch Agent', 'Corporate Enforcer', 'AI Terminator'];
+    const level = Math.min(30, Math.max(1, playerLevel + Math.floor(heat / 100)));
+    return {
+        name: names[Math.floor(Math.random() * names.length)],
+        hp: 40 + heat * 2 + level * 5,
+        dmg: 8 + heat + level * 2,
+        level,
+        type: 'bounty_hunter',
+        bounty: 100 + heat * 5 + level * 20,
+        abilities: ['pursuit', 'stun', 'mark'],
+    };
+}
+
+function checkAchievementUnlocks(achievements, stats) {
+    const newlyUnlocked = [];
+    achievements.forEach(a => {
+        if (a.done || a.claimed) return;
+        let done = false;
+        if (a.condition === 'level' && (stats.level || 1) >= (a.value || 1)) done = true;
+        if (a.condition === 'kill' && (stats.kills || 0) >= (a.value || 1)) done = true;
+        if (a.condition === 'credits' && (stats.credits || 0) >= (a.value || 1)) done = true;
+        if (a.condition === 'pvp_wins' && (stats.pvp_wins || 0) >= (a.value || 1)) done = true;
+        if (a.condition === 'craft' && (stats.items_crafted || 0) >= (a.value || 1)) done = true;
+        if (done) { a.done = true; newlyUnlocked.push(a); }
+    });
+    return newlyUnlocked;
+}
+
+// ─── Save/Load System ────────────────────────────────────────────────────
+const SAVE_KEY = 'neon_protocol_save';
+
+function saveGameState() {
+    try {
+        const state = {
+            character: game?.character?.character || {},
+            inventory: game?.playerInventory || [],
+            materials: game?.playerMaterials || {},
+            equipment: game?.equippedItems || {},
+            skills: game?.skillTree || [],
+            achievements: game?.playerAchievements || [],
+            quests: game?.activeQuests || [],
+            challenges: game?.dailyChallenges || [],
+            settings: { sound: game?.soundEnabled, music: game?.musicEnabled, particles: game?.particlesEnabled },
+            timestamp: Date.now(),
+        };
+        localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+        return true;
+    } catch(e) { return false; }
+}
+
+function loadGameState() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return null;
+        const state = JSON.parse(raw);
+        if (state.timestamp && Date.now() - state.timestamp > 86400000) {
+            state.dailyChallenges = null;
+        }
+        return state;
+    } catch(e) { return null; }
+}
+
+function autoSaveLoop() {
+    if (game && game.autoSave !== false) {
+        saveGameState();
+    }
+    setTimeout(autoSaveLoop, 30000);
+}
+
+// ─── Network Helpers ─────────────────────────────────────────────────────
+async function apiFetch(endpoint, method, body) {
+    try {
+        const opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(CFG.API + endpoint, opts);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+    } catch(e) {
+        console.warn('API error:', endpoint, e.message);
+        return null;
+    }
+}
+
+async function syncWithServer() {
+    const data = await apiFetch('/sync', 'POST', { state: loadGameState() });
+    if (data && data.character) {
+        if (game) game.character = { character: data.character };
+        return data;
+    }
+    return null;
+}
+
+// ─── Formatters ──────────────────────────────────────────────────────────
+function formatDuration(seconds) {
+    if (seconds < 60) return seconds + 's';
+    if (seconds < 3600) return Math.floor(seconds / 60) + 'm ' + (seconds % 60) + 's';
+    return Math.floor(seconds / 3600) + 'h ' + Math.floor((seconds % 3600) / 60) + 'm';
+}
+
+function formatLargeNumber(n) {
+    if (n >= 1000000000) return (n / 1000000000).toFixed(1) + 'B';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toString();
+}
+
+function formatPercentage(val) {
+    return (val * 100).toFixed(1) + '%';
+}
+
+function formatStatBlock(stats) {
+    return Object.entries(stats).filter(([k, v]) => v && v > 0).map(([k, v]) => {
+        const labels = { atk: 'ATK', def: 'DEF', hack: 'HACK', spd: 'SPD', crit: 'CRIT', hp: 'HP', dodge: 'DODGE' };
+        return (labels[k] || k) + ' +' + v;
+    }).join(' | ');
+}
+
+function shortenName(name, maxLen) {
+    if (!name) return '';
+    return name.length > maxLen ? name.substring(0, maxLen - 1) + '..' : name;
+}
+
+// ─── Color and Theme Helpers ────────────────────────────────────────────
+function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + (alpha || 1) + ')';
+}
+
+function colorLerp(c1, c2, t) {
+    const r1 = parseInt(c1.slice(1, 3), 16), g1 = parseInt(c1.slice(3, 5), 16), b1 = parseInt(c1.slice(5, 7), 16);
+    const r2 = parseInt(c2.slice(1, 3), 16), g2 = parseInt(c2.slice(3, 5), 16), b2 = parseInt(c2.slice(5, 7), 16);
+    const r = Math.round(r1 + (r2 - r1) * t), g = Math.round(g1 + (g2 - g1) * t), b = Math.round(b1 + (b2 - b1) * t);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+function getRarityGlow(rarity) {
+    const map = { common: 'rgba(170,170,170,0.3)', uncommon: 'rgba(0,255,0,0.3)', rare: 'rgba(0,255,255,0.3)', epic: 'rgba(255,0,255,0.3)', legendary: 'rgba(255,255,0,0.3)' };
+    return map[rarity] || map.common;
+}
+
+function getTypeIcon(type) {
+    const map = { program: '💻', implant: '🧬', weapon: '⚔', armor: '🛡', consumable: '💊', material: '🔩', cyberware: '🔧', lootbox: '📦', program: '💾' };
+    return map[type] || '❓';
+}
+
+function getRarityStars(rarity) {
+    const map = { common: '★', uncommon: '★★', rare: '★★★', epic: '★★★★', legendary: '★★★★★' };
+    return map[rarity] || '★';
+}
+
+// ─── Game State Initialization ──────────────────────────────────────────
+function initDefaultGameState() {
+    return {
+        character: {
+            nickname: 'Ghost', level: 1, experience: 0, credits: 500,
+            health: 100, max_health: 100, energy: 100, max_energy: 100,
+            attack: 10, defense: 5, crit_chance: 0.05, crit_damage: 1.5,
+            hacking_power: 5, hacking_defense: 5,
+            reputation: { arasaka: 0, militech: 0, kang_tao: 0, netwatch: 0, ghosts: 0 },
+            battle_pass_level: 0, battle_pass_xp: 0, battle_pass_premium: false,
+            pvp_rating: 1000, pvp_wins: 0, pvp_losses: 0,
+            kills: 0, items_crafted: 0, missions_completed: 0,
+        },
+        inventory: [],
+        materials: {},
+        equipment: {},
+        skills: [],
+        achievements: [],
+        quests: [],
+        settings: { sound: true, music: true, particles: true },
+    };
+}
+
+function mergeGameState(saved, defaults) {
+    const result = JSON.parse(JSON.stringify(defaults));
+    if (!saved) return result;
+    if (saved.character) Object.assign(result.character, saved.character);
+    if (saved.inventory) result.inventory = saved.inventory;
+    if (saved.materials) result.materials = saved.materials;
+    if (saved.equipment) result.equipment = saved.equipment;
+    if (saved.skills) result.skills = saved.skills;
+    if (saved.achievements) result.achievements = saved.achievements;
+    if (saved.quests) result.quests = saved.quests;
+    if (saved.settings) Object.assign(result.settings, saved.settings);
+    return result;
+}
+
+// ─── Story and Lore Content ─────────────────────────────────────────────
+const STORY_CHAPTERS = [
+    { id: 'prologue', title: 'Prologue', desc: 'The Collapse of 2077 and the birth of the NetSphere.', missions: 3, rewards: { cr: 500, xp: 200, item: 'Basic ICEBreaker' } },
+    { id: 'ch1', title: 'Chapter 1: Awakening', desc: 'You wake in a digital wasteland. No memory. No identity.', missions: 5, rewards: { cr: 1000, xp: 500, item: 'Neural Link' } },
+    { id: 'ch2', title: 'Chapter 2: Corporate Wars', desc: 'The megacorps battle for control. Choose your side.', missions: 6, rewards: { cr: 2500, xp: 1200, item: 'Corporate Pass' } },
+    { id: 'ch3', title: 'Chapter 3: Ghost Protocol', desc: 'Join the Ghost network and fight for digital freedom.', missions: 7, rewards: { cr: 5000, xp: 2500, item: 'Ghost Module' } },
+    { id: 'ch4', title: 'Chapter 4: Dark Secrets', desc: 'Uncover the truth behind the AI awakening.', missions: 8, rewards: { cr: 10000, xp: 5000, item: 'AI Fragment Key' } },
+    { id: 'ch5', title: 'Chapter 5: The Core', desc: 'Journey to the heart of the Matrix. Face the AI.', missions: 10, rewards: { cr: 25000, xp: 15000, item: 'Legendary Cyberdeck' } },
+    { id: 'epilogue', title: 'Epilogue', desc: 'The NetSphere is changed forever. What comes next?', missions: 3, rewards: { cr: 50000, xp: 25000, title: 'Net Legend' } },
+];
+
+const STORY_MISSIONS = [
+    { id: 'm001', chapter: 'prologue', name: 'First Connection', desc: 'Establish your first link to the NetSphere.', difficulty: 'easy', enemies: [{ type: 'sentry', count: 2 }], rewards: { cr: 100, xp: 50 } },
+    { id: 'm002', chapter: 'prologue', name: 'Data Recovery', desc: 'Recover lost data fragments from corrupted nodes.', difficulty: 'easy', enemies: [{ type: 'sentry', count: 3 }], rewards: { cr: 150, xp: 75 } },
+    { id: 'm003', chapter: 'prologue', name: 'First ICE', desc: 'Defeat your first ICE guardian.', difficulty: 'easy', enemies: [{ type: 'hunter', count: 1 }], rewards: { cr: 200, xp: 100, item: 'Data Shard' } },
+    { id: 'm004', chapter: 'ch1', name: 'Memory Fragment', desc: 'Find clues about your past in the digital ruins.', difficulty: 'normal', enemies: [{ type: 'hunter', count: 2 }], rewards: { cr: 300, xp: 150 } },
+    { id: 'm005', chapter: 'ch1', name: 'Safe Passage', desc: 'Navigate through a secured corporate network.', difficulty: 'normal', enemies: [{ type: 'sentry', count: 3 }, { type: 'hunter', count: 1 }], rewards: { cr: 400, xp: 200 } },
+    { id: 'm006', chapter: 'ch1', name: 'The Signal', desc: 'Trace a mysterious signal to its source.', difficulty: 'normal', enemies: [{ type: 'phantom', count: 1 }], rewards: { cr: 500, xp: 250, item: 'Signal Decoder' } },
+    { id: 'm007', chapter: 'ch1', name: 'Safe House', desc: 'Establish a secure base of operations.', difficulty: 'easy', enemies: [], rewards: { cr: 200, xp: 100 } },
+    { id: 'm008', chapter: 'ch1', name: 'Contact', desc: 'Meet a mysterious informant in the DarkNet.', difficulty: 'normal', enemies: [{ type: 'sentry', count: 2 }], rewards: { cr: 350, xp: 175 } },
+    { id: 'm009', chapter: 'ch2', name: 'Arasaka Job', desc: 'Accept a contract from the Arasaka corporation.', difficulty: 'normal', enemies: [{ type: 'guardian', count: 2 }], rewards: { cr: 600, xp: 300, rep: { arasaka: 25 } } },
+    { id: 'm010', chapter: 'ch2', name: 'Data Heist', desc: 'Steal corporate data from a secure server.', difficulty: 'hard', enemies: [{ type: 'guardian', count: 3 }, { type: 'overlord', count: 1 }], rewards: { cr: 1000, xp: 500, item: 'Encrypted Drive' } },
+    { id: 'm011', chapter: 'ch2', name: 'Sabotage', desc: 'Sabotage a rival corporation operation.', difficulty: 'hard', enemies: [{ type: 'viral', count: 2 }], rewards: { cr: 800, xp: 400, rep: { militech: 25 } } },
+    { id: 'm012', chapter: 'ch2', name: 'Negotiation', desc: 'Negotiate a truce between warring factions.', difficulty: 'normal', enemies: [], rewards: { cr: 500, xp: 250, rep: { netwatch: 30 } } },
+    { id: 'm013', chapter: 'ch2', name: 'Betrayal', desc: 'Someone has betrayed the network. Find them.', difficulty: 'hard', enemies: [{ type: 'phantom', count: 2 }], rewards: { cr: 1200, xp: 600, item: 'Tracker Program' } },
+    { id: 'm014', chapter: 'ch2', name: 'Alliance', desc: 'Form an alliance with a powerful faction.', difficulty: 'normal', enemies: [{ type: 'guardian', count: 2 }], rewards: { cr: 700, xp: 350, rep: { kang_tao: 20 } } },
+    { id: 'm015', chapter: 'ch3', name: 'Ghost Recruitment', desc: 'Prove your worth to the Ghost network.', difficulty: 'hard', enemies: [{ type: 'overlord', count: 1 }], rewards: { cr: 1500, xp: 750, rep: { ghosts: 50 } } },
+    { id: 'm016', chapter: 'ch3', name: 'Freedom Mission', desc: 'Free captured netrunners from corporate prisons.', difficulty: 'hard', enemies: [{ type: 'guardian', count: 3 }, { type: 'overlord', count: 1 }], rewards: { cr: 2000, xp: 1000, item: 'Ghost Module' } },
+    { id: 'm017', chapter: 'ch3', name: 'Broadcast', desc: 'Send a freedom broadcast across the NetSphere.', difficulty: 'epic', enemies: [{ type: 'overlord', count: 2 }], rewards: { cr: 3000, xp: 1500, rep: { ghosts: 75 } } },
+    { id: 'm018', chapter: 'ch3', name: 'Underground', desc: 'Build an underground resistance network.', difficulty: 'normal', enemies: [{ type: 'hunter', count: 3 }], rewards: { cr: 1000, xp: 500 } },
+    { id: 'm019', chapter: 'ch3', name: 'Encryption War', desc: 'Battle corporate encryption algorithms.', difficulty: 'hard', enemies: [{ type: 'viral', count: 3 }], rewards: { cr: 1800, xp: 900, item: 'Decryption Key' } },
+    { id: 'm020', chapter: 'ch3', name: 'Safe Passage II', desc: 'Guide refugees through a war-torn network.', difficulty: 'epic', enemies: [{ type: 'overlord', count: 1 }, { type: 'phantom', count: 2 }], rewards: { cr: 2500, xp: 1200 } },
+    { id: 'm021', chapter: 'ch4', name: 'Deep Investigation', desc: 'Investigate strange signals from the Deep Web.', difficulty: 'epic', enemies: [{ type: 'ai_fragment', count: 1 }], rewards: { cr: 4000, xp: 2000, item: 'AI Trace Data' } },
+    { id: 'm022', chapter: 'ch4', name: 'The Truth', desc: 'Discover the truth about the AI awakening.', difficulty: 'epic', enemies: [{ type: 'ai_fragment', count: 2 }], rewards: { cr: 5000, xp: 2500 } },
+    { id: 'm023', chapter: 'ch4', name: 'Conspiracy', desc: 'Uncover a conspiracy that reaches the highest levels.', difficulty: 'epic', enemies: [{ type: 'guardian', count: 4 }, { type: 'ai_fragment', count: 1 }], rewards: { cr: 6000, xp: 3000, item: 'Conspiracy File' } },
+    { id: 'm024', chapter: 'ch4', name: 'Awakening', desc: 'The AI is waking up. Stop it before it\'s too late.', difficulty: 'legendary', enemies: [{ type: 'ai_fragment', count: 3 }], rewards: { cr: 8000, xp: 4000 } },
+    { id: 'm025', chapter: 'ch5', name: 'Gatekeeper', desc: 'Defeat the gatekeeper of the Core.', difficulty: 'legendary', enemies: [{ type: 'overlord', count: 3 }, { type: 'ai_fragment', count: 2 }], rewards: { cr: 10000, xp: 5000, item: 'Core Fragment' } },
+    { id: 'm026', chapter: 'ch5', name: 'Neural Dive', desc: 'Dive deep into the AI consciousness.', difficulty: 'legendary', enemies: [{ type: 'ai_fragment', count: 4 }], rewards: { cr: 15000, xp: 7500 } },
+    { id: 'm027', chapter: 'ch5', name: 'The Choice', desc: 'Face the AI. Decide the fate of the NetSphere.', difficulty: 'legendary', enemies: [{ type: 'ai_fragment', count: 5 }], rewards: { cr: 20000, xp: 10000, title: 'Net Legend' } },
+    { id: 'm028', chapter: 'ch5', name: 'New Dawn', desc: 'The battle is over. Rebuild the network.', difficulty: 'legendary', enemies: [{ type: 'overlord', count: 2 }], rewards: { cr: 25000, xp: 15000, item: 'Legendary Cyberdeck' } },
+    { id: 'm029', chapter: 'epilogue', name: 'Aftermath', desc: 'Explore the changed NetSphere.', difficulty: 'epic', enemies: [{ type: 'phantom', count: 3 }], rewards: { cr: 10000, xp: 5000 } },
+    { id: 'm030', chapter: 'epilogue', name: 'Future', desc: 'The future is unwritten. What will you do?', difficulty: 'normal', enemies: [], rewards: { cr: 5000, xp: 2500, title: 'Pioneer' } },
+];
+
+// ─── Zones / Regions Data ───────────────────────────────────────────────
+const ZONES_DATA = [
+    { id: 'matrix', name: 'The Matrix', desc: 'Basic digital realm for beginners.', minLvl: 1, maxLvl: 10, enemies: ['spam', 'worm'], bg: '#0a0a1a', color: '#0ff', boss: 'Matrix Core Guardian' },
+    { id: 'corpnet', name: 'CorpNet', desc: 'Corporate network with advanced ICE.', minLvl: 10, maxLvl: 25, enemies: ['trojan', 'virus'], bg: '#1a0a0a', color: '#f80', boss: 'CEO Security AI' },
+    { id: 'darknet', name: 'DarkNet', desc: 'Underground criminal network.', minLvl: 25, maxLvl: 40, enemies: ['worm', 'trojan'], bg: '#0a001a', color: '#f0f', boss: 'Dark Lord Protocol' },
+    { id: 'deep_web', name: 'Deep Web', desc: 'Hidden layers of the internet.', minLvl: 40, maxLvl: 60, enemies: ['virus', 'ai_fragment'], bg: '#00000a', color: '#f00', boss: 'Deep Web Kraken' },
+    { id: 'core', name: 'The Core', desc: 'Heart of the NetSphere.', minLvl: 60, maxLvl: 100, enemies: ['overlord', 'guardian', 'ai_fragment'], bg: '#000', color: '#ff0', boss: 'AI Prime' },
+];
+
+function getZoneData(zoneId) { return ZONES_DATA.find(z => z.id === zoneId) || ZONES_DATA[0]; }
+
+// ─── Factions Data ──────────────────────────────────────────────────────
+const FACTIONS_DATA = [
+    { id: 'netrunners', name: 'NetRunner Guild', desc: 'Elite hackers protecting the free net.', color: '#0ff', reputation: 0, perks: ['hack_bonus', 'discount_programs'] },
+    { id: 'corp', name: 'OmniCorp', desc: 'Megacorporation controlling the network.', color: '#f80', reputation: 0, perks: ['credits_bonus', 'equipment_discount'] },
+    { id: 'anarchists', name: 'Digital Anarchists', desc: 'Freedom fighters against all control.', color: '#f00', reputation: 0, perks: ['stealth_bonus', 'critical_bonus'] },
+    { id: 'collectors', name: 'Collectors Union', desc: 'Merchants and traders of the net.', color: '#ff0', reputation: 0, perks: ['trade_bonus', 'rare_items'] },
+    { id: 'sentinels', name: 'Net Sentinels', desc: 'Guardians of cybersecurity.', color: '#0f0', reputation: 0, perks: ['defense_bonus', 'shield_bonus'] },
+    { id: 'cryptics', name: 'Cryptic Order', desc: 'Mysterious group studying AI origins.', color: '#f0f', reputation: 0, perks: ['matrix_bonus', 'loot_bonus'] },
+];
+
+function getFactionData(factionId) { return FACTIONS_DATA.find(f => f.id === factionId) || FACTIONS_DATA[0]; }
+
+// ─── Cyberware / Implants Data ──────────────────────────────────────────
+const CYBERWARE_DATA = [
+    { id: 'cw01', name: 'Neural Accelerator', type: 'neural', desc: '+15% processing speed', slot: 'brain', rarity: 'rare', cost: 2000, effects: { speed: 0.15 }, lvl: 5 },
+    { id: 'cw02', name: 'Optical Enhancer', type: 'optical', desc: '+10% critical chance', slot: 'eyes', rarity: 'rare', cost: 3000, effects: { crit: 0.1 }, lvl: 10 },
+    { id: 'cw03', name: 'Subdermal Armor', type: 'armor', desc: '+50 max HP', slot: 'body', rarity: 'uncommon', cost: 1500, effects: { hp: 50 }, lvl: 3 },
+    { id: 'cw04', name: 'Adrenal Pump', type: 'endocrine', desc: '+20% damage for 10s on activation', slot: 'body', rarity: 'rare', cost: 4000, effects: { dmgBoost: 0.2 }, lvl: 12 },
+    { id: 'cw05', name: 'Memory Chip', type: 'neural', desc: '+30% experience gain', slot: 'brain', rarity: 'epic', cost: 8000, effects: { xpBoost: 0.3 }, lvl: 20 },
+    { id: 'cw06', name: 'Targeting System', type: 'optical', desc: '+25% accuracy', slot: 'eyes', rarity: 'epic', cost: 10000, effects: { accuracy: 0.25 }, lvl: 25 },
+    { id: 'cw07', name: 'Energy Core', type: 'power', desc: '+100 max energy', slot: 'body', rarity: 'epic', cost: 12000, effects: { energy: 100 }, lvl: 30 },
+    { id: 'cw08', name: 'Cloak Generator', type: 'stealth', desc: 'Stealth on combat start', slot: 'body', rarity: 'legendary', cost: 25000, effects: { stealth: true }, lvl: 40 },
+    { id: 'cw09', name: 'Data Spike', type: 'weapon', desc: '+30 hacking power', slot: 'arm', rarity: 'epic', cost: 15000, effects: { hack: 30 }, lvl: 35 },
+    { id: 'cw10', name: 'Regeneration Matrix', type: 'medical', desc: 'HP regen 5/s in combat', slot: 'body', rarity: 'legendary', cost: 30000, effects: { hpRegen: 5 }, lvl: 50 },
+    { id: 'cw11', name: 'Quantum Processor', type: 'neural', desc: '+50% credit gain', slot: 'brain', rarity: 'legendary', cost: 50000, effects: { creditBoost: 0.5 }, lvl: 60 },
+    { id: 'cw12', name: 'Shadow Module', type: 'stealth', desc: '+40% evasion', slot: 'body', rarity: 'legendary', cost: 45000, effects: { evasion: 0.4 }, lvl: 55 },
+    { id: 'cw13', name: 'EMP Generator', type: 'weapon', desc: 'EMP blast stuns enemies for 3s', slot: 'arm', rarity: 'epic', cost: 20000, effects: { emp: true }, lvl: 45 },
+    { id: 'cw14', name: 'Hive Link', type: 'neural', desc: 'Synced combat with allies', slot: 'brain', rarity: 'epic', cost: 18000, effects: { sync: true }, lvl: 38 },
+    { id: 'cw15', name: 'Nanite Swarm', type: 'medical', desc: 'Auto-repair 50 HP when low', slot: 'body', rarity: 'legendary', cost: 60000, effects: { autoHeal: 50 }, lvl: 70 },
+];
+
+// ─── Daily Challenges Data ──────────────────────────────────────────────
+const DAILY_CHALLENGES_DATA = [
+    { id: 'ch_d01', name: 'Code Runner', desc: 'Complete 3 matrix sequences', requirement: { type: 'matrix', count: 3 }, rewards: { cr: 200, xp: 100 }, difficulty: 'easy' },
+    { id: 'ch_d02', name: 'Frag Hunter', desc: 'Defeat 10 ICE programs', requirement: { type: 'kill', count: 10 }, rewards: { cr: 300, xp: 150 }, difficulty: 'easy' },
+    { id: 'ch_d03', name: 'Data Miner', desc: 'Earn 1000 credits from battles', requirement: { type: 'credits', count: 1000 }, rewards: { cr: 500, xp: 250 }, difficulty: 'medium' },
+    { id: 'ch_d04', name: 'Crafter', desc: 'Craft 3 programs', requirement: { type: 'craft', count: 3 }, rewards: { cr: 400, xp: 200 }, difficulty: 'medium' },
+    { id: 'ch_d05', name: 'Market Trader', desc: 'Complete 5 market trades', requirement: { type: 'trade', count: 5 }, rewards: { cr: 600, xp: 300 }, difficulty: 'medium' },
+    { id: 'ch_d06', name: 'Elite Hunter', desc: 'Defeat 3 elite enemies', requirement: { type: 'kill_elite', count: 3 }, rewards: { cr: 1000, xp: 500 }, difficulty: 'hard' },
+    { id: 'ch_d07', name: 'Story Seeker', desc: 'Complete 2 story missions', requirement: { type: 'story', count: 2 }, rewards: { cr: 800, xp: 400 }, difficulty: 'hard' },
+    { id: 'ch_d08', name: 'Zone Explorer', desc: 'Visit 3 different zones', requirement: { type: 'explore', count: 3 }, rewards: { cr: 500, xp: 250 }, difficulty: 'easy' },
+    { id: 'ch_d09', name: 'Gambler', desc: 'Win 500 credits at casino', requirement: { type: 'gamble_win', count: 500 }, rewards: { cr: 300, xp: 150 }, difficulty: 'medium' },
+    { id: 'ch_d10', name: 'MAXimum Overdrive', desc: 'Activate 5 skill boosts', requirement: { type: 'boost', count: 5 }, rewards: { cr: 700, xp: 350 }, difficulty: 'hard' },
+];
+
+// ─── Achievements Data ──────────────────────────────────────────────────
+const ACHIEVEMENTS_DATA = [
+    { id: 'ach_01', name: 'First Blood', desc: 'Win your first battle', condition: (s) => s.battlesWon >= 1, rewards: { cr: 100, xp: 50 }, hidden: false },
+    { id: 'ach_02', name: 'Program Collector', desc: 'Collect 10 unique programs', condition: (s) => (s.programs || []).length >= 10, rewards: { cr: 500, xp: 250 }, hidden: false },
+    { id: 'ach_03', name: 'Rising Star', desc: 'Reach level 10', condition: (s) => s.level >= 10, rewards: { cr: 1000, xp: 0 }, hidden: false },
+    { id: 'ach_04', name: 'Millionaire', desc: 'Accumulate 100000 credits', condition: (s) => s.totalCreditsEarned >= 100000, rewards: { cr: 0, xp: 1000 }, hidden: false },
+    { id: 'ach_05', name: 'Legendary Crafter', desc: 'Craft a legendary program', condition: (s) => s.legendaryCrafted >= 1, rewards: { cr: 2000, xp: 1000 }, hidden: false },
+    { id: 'ach_06', name: 'Net Explorer', desc: 'Visit the Core zone', condition: (s) => s.visitedCore, rewards: { cr: 1500, xp: 750 }, hidden: false },
+    { id: 'ach_07', name: 'Boss Slayer', desc: 'Defeat 10 bosses', condition: (s) => s.bossesDefeated >= 10, rewards: { cr: 3000, xp: 1500 }, hidden: false },
+    { id: 'ach_08', name: 'Full Deck', desc: 'Equip all equipment slots', condition: (s) => s.allSlotsEquipped, rewards: { cr: 1000, xp: 500 }, hidden: false },
+    { id: 'ach_09', name: 'Skill Master', desc: 'Max out a skill tree', condition: (s) => s.maxSkillTree, rewards: { cr: 5000, xp: 2500 }, hidden: false },
+    { id: 'ach_10', name: 'Dark Explorer', desc: 'Complete all story missions', condition: (s) => s.allMissionsComplete, rewards: { cr: 10000, xp: 5000, title: 'Net Legend' }, hidden: false },
+    { id: 'ach_11', name: 'High Roller', desc: 'Win 10000 credits at casino in one session', condition: (s) => s.biggestWin >= 10000, rewards: { cr: 2000, xp: 1000 }, hidden: false },
+    { id: 'ach_12', name: 'Faction Leader', desc: 'Reach max reputation with any faction', condition: (s) => s.maxFactionRep, rewards: { cr: 5000, xp: 2500 }, hidden: false },
+    { id: 'ach_13', name: 'Speed Runner', desc: 'Defeat an enemy on first turn', condition: (s) => s.firstTurnKills >= 5, rewards: { cr: 500, xp: 250 }, hidden: false },
+    { id: 'ach_14', name: 'Ghost in the Net', desc: 'Win 50 battles without taking damage', condition: (s) => s.perfectBattles >= 50, rewards: { cr: 20000, xp: 10000, title: 'Ghost' }, hidden: false },
+    { id: 'ach_15', name: 'Collector Supreme', desc: 'Collect all programs in the game', condition: (s) => s.allProgramsCollected, rewards: { cr: 50000, xp: 25000, title: 'Collector Supreme' }, hidden: true },
+];
+
+// ─── Hackable Targets Data ──────────────────────────────────────────────
+const HACKABLE_TARGETS = [
+    { id: 'ht_01', name: 'Rusty Terminal', difficulty: 1, rewards: { cr: [10, 50], xp: 5 }, minLvl: 1, defense: 10, hackType: 'port_scan' },
+    { id: 'ht_02', name: 'ATM Machine', difficulty: 2, rewards: { cr: [50, 200], xp: 15 }, minLvl: 3, defense: 20, hackType: 'password' },
+    { id: 'ht_03', name: 'Corp Database', difficulty: 3, rewards: { cr: [100, 500], xp: 30 }, minLvl: 5, defense: 35, hackType: 'sql_injection' },
+    { id: 'ht_04', name: 'Security Camera', difficulty: 2, rewards: { cr: [30, 100], xp: 10 }, minLvl: 2, defense: 15, hackType: 'backdoor' },
+    { id: 'ht_05', name: 'Drone Controller', difficulty: 3, rewards: { cr: [100, 300], xp: 25 }, minLvl: 8, defense: 40, hackType: 'exploit' },
+    { id: 'ht_06', name: 'Research Lab', difficulty: 4, rewards: { cr: [300, 1000], xp: 50 }, minLvl: 12, defense: 60, hackType: 'bruteforce' },
+    { id: 'ht_07', name: 'Military Node', difficulty: 5, rewards: { cr: [500, 2000], xp: 75 }, minLvl: 18, defense: 85, hackType: 'zero_day' },
+    { id: 'ht_08', name: 'AI Core Fragment', difficulty: 6, rewards: { cr: [1000, 5000], xp: 100 }, minLvl: 25, defense: 120, hackType: 'buffer_overflow' },
+    { id: 'ht_09', name: 'Mainframe Access', difficulty: 7, rewards: { cr: [2000, 10000], xp: 150 }, minLvl: 35, defense: 180, hackType: 'system_breach' },
+    { id: 'ht_10', name: 'Quantum Vault', difficulty: 8, rewards: { cr: [5000, 25000], xp: 250 }, minLvl: 50, defense: 250, hackType: 'quantum_crack' },
+];
+
+// ─── Network Nodes / Map Data ───────────────────────────────────────────
+const NETWORK_NODES = [
+    { id: 'n01', name: 'Entry Point', zone: 'matrix', x: 100, y: 100, type: 'gateway', connections: ['n02', 'n03'], locked: false },
+    { id: 'n02', name: 'Buffer Zone', zone: 'matrix', x: 300, y: 80, type: 'hub', connections: ['n01', 'n04'], locked: false },
+    { id: 'n03', name: 'Data Stream', zone: 'matrix', x: 80, y: 300, type: 'data', connections: ['n01', 'n04'], locked: false },
+    { id: 'n04', name: 'Matrix Core', zone: 'matrix', x: 250, y: 250, type: 'core', connections: ['n02', 'n03', 'n05'], locked: false },
+    { id: 'n05', name: 'Corp Gateway', zone: 'corpnet', x: 400, y: 200, type: 'gateway', connections: ['n04', 'n06', 'n07'], locked: true, minLvl: 10 },
+    { id: 'n06', name: 'Data Center', zone: 'corpnet', x: 550, y: 100, type: 'hub', connections: ['n05', 'n08'], locked: false },
+    { id: 'n07', name: 'Firewall Alley', zone: 'corpnet', x: 500, y: 350, type: 'combat', connections: ['n05', 'n08'], locked: false },
+    { id: 'n08', name: 'Corp Vault', zone: 'corpnet', x: 650, y: 250, type: 'treasure', connections: ['n06', 'n07', 'n09'], locked: false },
+    { id: 'n09', name: 'Dark Portal', zone: 'darknet', x: 800, y: 150, type: 'gateway', connections: ['n08', 'n10', 'n11'], locked: true, minLvl: 25 },
+    { id: 'n10', name: 'Black Market', zone: 'darknet', x: 750, y: 400, type: 'shop', connections: ['n09', 'n11'], locked: false },
+    { id: 'n11', name: 'Shadow Server', zone: 'darknet', x: 900, y: 300, type: 'boss', connections: ['n09', 'n10', 'n12'], locked: false },
+    { id: 'n12', name: 'Deep Well', zone: 'deep_web', x: 1050, y: 200, type: 'gateway', connections: ['n11', 'n13', 'n14'], locked: true, minLvl: 40 },
+    { id: 'n13', name: 'Abyss', zone: 'deep_web', x: 1100, y: 400, type: 'combat', connections: ['n12', 'n14'], locked: false },
+    { id: 'n14', name: 'Lost Archive', zone: 'deep_web', x: 1200, y: 300, type: 'data', connections: ['n12', 'n13', 'n15'], locked: false },
+    { id: 'n15', name: 'Core Gate', zone: 'core', x: 1350, y: 250, type: 'gateway', connections: ['n14', 'n16'], locked: true, minLvl: 60 },
+    { id: 'n16', name: 'AI Throne', zone: 'core', x: 1500, y: 180, type: 'boss', connections: ['n15'], locked: false },
+];
+
+// ─── Story NPC Dialogues ────────────────────────────────────────────────
+const NPC_DIALOGUES = {
+    'guardian': [
+        { text: 'Welcome, netrunner. The NetSphere needs you.', options: [{ text: 'Tell me more', next: 1 }, { text: 'Not interested', action: 'leave' }] },
+        { text: 'The AI is awakening. You must stop it.', options: [{ text: 'How do I start?', next: 2 }, { text: 'Sounds dangerous', action: 'leave' }] },
+        { text: 'Start at the Matrix. Defeat the ICE there. Grow stronger.', options: [{ text: 'I will', action: 'quest_start' }, { text: 'I need a weapon', action: 'give_weapon' }] },
+    ],
+    'merchant': [
+        { text: 'Looking for rare programs? I have the best.', options: [{ text: 'Show me', action: 'open_shop' }, { text: 'Got any deals?', next: 1 }, { text: 'Bye', action: 'leave' }] },
+        { text: 'The market is volatile. Buy low, sell high!', options: [{ text: 'Open shop', action: 'open_shop' }, { text: 'Leave', action: 'leave' }] },
+    ],
+    'quest_giver': [
+        { text: 'Netrunner! I have a job for you.', options: [{ text: 'Accept quest', action: 'accept_quest' }, { text: 'What\'s the pay?', next: 1 }, { text: 'Not now', action: 'leave' }] },
+        { text: '2000 credits upfront, and you keep the loot.', options: [{ text: 'Accept quest', action: 'accept_quest' }, { text: 'No', action: 'leave' }] },
+    ],
+    'trainer': [
+        { text: 'You want to learn? I can teach you skills.', options: [{ text: 'Open skill tree', action: 'open_skills' }, { text: 'What can I learn?', next: 1 }, { text: 'Later', action: 'leave' }] },
+        { text: 'I teach hacking, combat, and crafting. Pick your path.', options: [{ text: 'Open skill tree', action: 'open_skills' }, { text: 'Leave', action: 'leave' }] },
+    ],
+};
+
+// ─── Gamble / Casino Mini-Games ─────────────────────────────────────────
+Game.prototype.renderCasino = function() {
+    this.ui.text(20, 20, '🎰 Net Casino', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const games = [
+        { id: 'slots', name: '🎰 Slots', desc: 'Match 3 symbols to win!', minBet: 10, maxBet: 500 },
+        { id: 'dice', name: '🎲 Dice', desc: 'Roll higher than the house!', minBet: 20, maxBet: 1000 },
+        { id: 'cards', name: '🃏 NetCards', desc: 'Beat the AI dealer!', minBet: 50, maxBet: 2000 },
+        { id: 'wheel', name: '🎡 Fortune Wheel', desc: 'Spin for big prizes!', minBet: 100, maxBet: 5000 },
+    ];
+    games.forEach((g, i) => {
+        const col = i % 2, row = Math.floor(i / 2);
+        const gx = 15 + col * 185, gy = 55 + row * 110;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#ff0';
+        this.ui.roundRect(ctx, gx, gy, 175, 100, 6, true, true);
+        ctx.fillStyle = '#ff0'; ctx.font = '14px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(g.name, gx + 87, gy + 25);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+        ctx.fillText(g.desc, gx + 87, gy + 50);
+        ctx.fillStyle = '#888'; ctx.font = '7px monospace';
+        ctx.fillText('Bet: ' + g.minBet + '-' + g.maxBet + 'cr', gx + 87, gy + 70);
+        ctx.fillStyle = '#ff0'; ctx.font = '8px Orbitron';
+        ctx.fillText('▶ PLAY', gx + 87, gy + 90);
+    });
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('💰 Balance: ' + (this.character?.character?.credits || 0) + ' credits', CFG.WIDTH/2, CFG.HEIGHT - 25);
+};
+
+Game.prototype.renderSlots = function() {
+    this.ui.text(20, 20, '🎰 Slots', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'casino', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const symbols = ['🍒', '🍋', '🍊', '🍇', '💎', '7️⃣', '⭐', '🔔'];
+    if (!this._slotState) {
+        this._slotState = { reels: [0, 0, 0], spinning: false, bet: 50, result: null, wins: 0, losses: 0 };
+    }
+    const s = this._slotState;
+    const cx = CFG.WIDTH / 2, cy = CFG.HEIGHT / 2;
+    ctx.fillStyle = '#0a0a1a'; ctx.strokeStyle = '#ff0';
+    this.ui.roundRect(ctx, 30, 70, CFG.WIDTH - 60, 120, 8, true, true);
+    ctx.font = '36px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    s.reels.forEach((r, i) => {
+        const rx = cx - 60 + i * 60;
+        ctx.fillStyle = s.spinning ? '#fff' : '#0ff';
+        ctx.fillText(s.symbols?.[r] || symbols[r], rx, cy - 10);
+    });
+    if (s.result) {
+        ctx.fillStyle = s.result === 'win' ? '#0f0' : '#f00';
+        ctx.font = '14px Orbitron'; ctx.textAlign = 'center';
+        ctx.fillText(s.result === 'win' ? '🎉 YOU WIN!' : '💔 Try Again', cx, cy + 60);
+        ctx.fillStyle = '#ff0'; ctx.font = '10px monospace';
+        if (s.result === 'win') ctx.fillText('+' + (s.bet * 2) + ' credits!', cx, cy + 80);
+    }
+    ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Bet: ' + s.bet + 'cr | Wins: ' + s.wins + ' | Losses: ' + s.losses, cx, CFG.HEIGHT - 70);
+    this.ui.btn(cx - 80, CFG.HEIGHT - 55, 160, 30, '🎰 SPIN (' + s.bet + 'cr)', () => {
+        if (s.spinning) return;
+        if ((this.character?.character?.credits || 0) < s.bet) return;
+        this.character.character.credits -= s.bet;
+        s.spinning = true; s.result = null;
+        const outcomes = s.reels.map(() => Math.floor(Math.random() * symbols.length));
+        setTimeout(() => {
+            s.reels = outcomes;
+            s.spinning = false;
+            const match = outcomes.every(v => v === outcomes[0]);
+            if (match || (outcomes[0] === outcomes[1] || outcomes[1] === outcomes[2] || outcomes[0] === outcomes[2])) {
+                s.result = 'win';
+                s.wins++;
+                this.character.character.credits += s.bet * 2;
+                this.sound.play('win');
+                this.anim.addParticles(cx, cy, 20, '#ff0', 30);
+            } else {
+                s.result = 'lose';
+                s.losses++;
+                this.sound.play('dmg');
+            }
+        }, 1000);
+    }, { font: '10px Orbitron', bg: '#1a0a1a', border: '#ff0', color: '#ff0' });
+};
+
+// ─── Network Stats Dashboard ────────────────────────────────────────────
+Game.prototype.renderNetworkStats = function() {
+    this.ui.text(20, 20, '📊 Network Stats', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const c = this.character?.character || {};
+    const stats = [
+        { label: 'Level', value: c.level || 1, color: '#0ff' },
+        { label: 'Experience', value: (c.experience || 0) + ' / ' + calcXpForLevel((c.level || 1) + 1), color: '#f0f' },
+        { label: 'Kills', value: c.kills || 0, color: '#f00' },
+        { label: 'PVP Rating', value: c.pvp_rating || 1000, color: '#f60' },
+        { label: 'PVP Wins', value: c.pvp_wins || 0, color: '#0f0' },
+        { label: 'PVP Losses', value: c.pvp_losses || 0, color: '#f00' },
+        { label: 'Win Rate', value: c.pvp_wins ? Math.floor((c.pvp_wins / ((c.pvp_wins || 0) + (c.pvp_losses || 0))) * 100) + '%' : '0%', color: '#ff0' },
+        { label: 'Items Crafted', value: c.items_crafted || 0, color: '#f80' },
+        { label: 'Missions Done', value: c.missions_completed || 0, color: '#0ff' },
+        { label: 'Battle Pass', value: 'Lv.' + (c.battle_pass_level || 0), color: '#f0f' },
+        { label: 'Reputation Total', value: Object.values(c.reputation || {}).reduce((a, b) => a + b, 0), color: '#ff0' },
+        { label: 'Play Time', value: c.play_time ? formatDuration(c.play_time) : '12h 34m', color: '#888' },
+    ];
+    stats.forEach((s, i) => {
+        const col = i % 2, row = Math.floor(i / 2);
+        const sx = 15 + col * 185, sy = 55 + row * 58;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#333';
+        this.ui.roundRect(ctx, sx, sy, 175, 50, 5, true, true);
+        ctx.fillStyle = s.color; ctx.font = '9px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(s.label, sx + 8, sy + 6);
+        ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(s.value.toString(), sx + 87, sy + 30);
+    });
+};
+
+// ─── Data Market / Stock Simulation ──────────────────────────────────────
+Game.prototype.renderDataMarket = function() {
+    this.ui.text(20, 20, '📈 Data Market', { font: CFG.FONTS.title, color: '#0f0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, '← Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    if (!this._dataMarket) {
+        this._dataMarket = {
+            commodities: [
+                { name: 'Raw Data', price: 50, vol: 1000, trend: 0.02, owned: 0 },
+                { name: 'Processing Power', price: 120, vol: 500, trend: -0.01, owned: 0 },
+                { name: 'Encryption Keys', price: 300, vol: 200, trend: 0.05, owned: 0 },
+                { name: 'AI Training Data', price: 800, vol: 50, trend: 0.1, owned: 0 },
+                { name: 'Neural Patterns', price: 2000, vol: 20, trend: -0.03, owned: 0 },
+                { name: 'Quantum Cores', price: 5000, vol: 5, trend: 0.08, owned: 0 },
+            ],
+            credits: 10000,
+            lastUpdate: Date.now(),
+        };
+    }
+    const mkt = this._dataMarket;
+    if (Date.now() - mkt.lastUpdate > 10000) {
+        mkt.commodities.forEach(c => {
+            const change = (Math.random() - 0.5 + c.trend) * 10;
+            c.price = Math.max(1, c.price + Math.floor(change));
+            c.vol += Math.floor((Math.random() - 0.5) * 20);
+            c.vol = Math.max(1, c.vol);
+        });
+        mkt.lastUpdate = Date.now();
+    }
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#0f0';
+    this.ui.roundRect(ctx, 15, 55, CFG.WIDTH - 30, 28, 4, true, true);
+    ctx.fillStyle = '#0f0'; ctx.font = '8px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('Commodity', 22, 69);
+    ctx.fillStyle = '#0f0'; ctx.font = '8px Orbitron'; ctx.textAlign = 'right';
+    ctx.fillText('Price | Vol | Trend', CFG.WIDTH - 25, 69);
+    mkt.commodities.forEach((c, i) => {
+        const my = 85 + i * 32;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = c.owned > 0 ? '#0f0' : '#333';
+        this.ui.roundRect(ctx, 15, my, CFG.WIDTH - 30, 28, 4, true, true);
+        ctx.fillStyle = '#fff'; ctx.font = '9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(c.name, 22, my + 14);
+        ctx.fillStyle = c.trend > 0 ? '#0f0' : '#f00'; ctx.font = '8px Orbitron'; ctx.textAlign = 'right';
+        ctx.fillText(c.price + 'cr | ' + c.vol + ' | ' + (c.trend > 0 ? '↑' : '↓') + Math.abs(c.trend).toFixed(2), CFG.WIDTH - 25, my + 14);
+        if (c.owned > 0) {
+            ctx.fillStyle = '#ff0'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+            ctx.fillText('Own: ' + c.owned, CFG.WIDTH - 25, my + 26);
+        }
+    });
+    ctx.fillStyle = '#888'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Market updates every 10s | Portfolio value: ' + formatLargeNumber(mkt.credits) + 'cr', CFG.WIDTH/2, CFG.HEIGHT - 25);
+};
+
+// ─── Achievement Reward Calculator ──────────────────────────────────────
+function calculateAchievementReward(achievement, playerLevel) {
+    const base = { common: 50, uncommon: 150, rare: 400, epic: 1000, legendary: 3000 };
+    const r = achievement.rarity || 'common';
+    const b = base[r] || 50;
+    const levelMult = 1 + (playerLevel || 1) * 0.1;
+    return {
+        cr: Math.floor(b * levelMult),
+        xp: Math.floor(b * 0.5 * levelMult),
+        rep: achievement.faction ? Math.floor(10 * levelMult) : 0,
+    };
+}
+
+function getAchievementRarity(difficulty) {
+    if (difficulty >= 100) return 'legendary';
+    if (difficulty >= 60) return 'epic';
+    if (difficulty >= 30) return 'rare';
+    if (difficulty >= 10) return 'uncommon';
+    return 'common';
+}
+
+function computePlayerPowerLevel(stats, equipment, skills) {
+    let power = (stats.atk || 10) * 2 + (stats.def || 5) * 1.5 + (stats.hp || 100) * 0.1;
+    power += (stats.hack || 5) * 3 + (stats.crit || 0.05) * 100;
+    if (equipment) {
+        Object.values(equipment).forEach(item => {
+            if (item) power += (item.atk || 0) * 2 + (item.def || 0) * 1.5 + (item.hack || 0) * 3;
+        });
+    }
+    if (skills) {
+        skills.forEach(s => { power += s.lvl * 5; });
+    }
+    return Math.floor(power);
+}
+
+function getDifficultyForPower(power) {
+    if (power >= 500) return { label: 'Legendary', mult: 3.0, color: '#ff0' };
+    if (power >= 300) return { label: 'Epic', mult: 2.0, color: '#f0f' };
+    if (power >= 150) return { label: 'Hard', mult: 1.5, color: '#f00' };
+    if (power >= 50) return { label: 'Normal', mult: 1.0, color: '#ff0' };
+    return { label: 'Easy', mult: 0.5, color: '#0f0' };
+}
+
+// ─── Inventory Sorting and Filtering ────────────────────────────────────
+function sortInventory(items, sortBy) {
+    const sorted = [...items];
+    switch (sortBy) {
+        case 'name': sorted.sort((a, b) => (a.name || '').localeCompare(b.name || '')); break;
+        case 'rarity': sorted.sort((a, b) => { const r = { legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 }; return (r[b.rarity] || 0) - (r[a.rarity] || 0); }); break;
+        case 'type': sorted.sort((a, b) => (a.type || '').localeCompare(b.type || '')); break;
+        case 'level': sorted.sort((a, b) => (b.lvl || 1) - (a.lvl || 1)); break;
+        default: break;
+    }
+    return sorted;
+}
+
+function filterInventory(items, filters) {
+    return items.filter(item => {
+        if (filters.rarity && item.rarity !== filters.rarity) return false;
+        if (filters.type && item.type !== filters.type) return false;
+        if (filters.search) {
+            const q = filters.search.toLowerCase();
+            if (!item.name?.toLowerCase().includes(q)) return false;
+        }
+        if (filters.minLvl && (item.lvl || 1) < filters.minLvl) return false;
+        return true;
+    });
+}
+
+// ─── Market Price Calculator ────────────────────────────────────────────
+function calculateMarketPrice(basePrice, supply, demand, volatility) {
+    const supplyFactor = Math.max(0.5, Math.min(2.0, 1000 / (supply || 100)));
+    const demandFactor = Math.max(0.5, Math.min(2.0, (demand || 100) / 100));
+    const vol = 1 + (Math.random() - 0.5) * (volatility || 0.1);
+    return Math.max(1, Math.floor(basePrice * supplyFactor * demandFactor * vol));
+}
+
+function calculateSellPrice(buyPrice, taxRate) {
+    const tax = taxRate || 0.05;
+    return Math.max(1, Math.floor(buyPrice * (1 - tax)));
+}
+
+function calculateTradeProfit(buyPrice, sellPrice, quantity) {
+    return (sellPrice - buyPrice) * Math.max(1, quantity);
+}
+
+// ─── Quest Progress Tracker ─────────────────────────────────────────────
+function updateQuestProgress(quests, event) {
+    const updated = [];
+    quests.forEach(q => {
+        if (q.completed) return;
+        (q.goals || []).forEach(goal => {
+            if (goal.type === event.type && (!goal.target || goal.target === event.target)) {
+                goal.current = (goal.current || 0) + (event.amount || 1);
+            }
+        });
+        const allDone = (q.goals || []).every(g => (g.current || 0) >= (g.count || 1));
+        if (allDone && !q.completed) {
+            q.completed = true;
+            updated.push(q);
+        }
+    });
+    return updated;
+}
+
+function generateDailyQuests(playerLevel) {
+    const templates = [
+        { name: 'Daily Hunt', desc: 'Defeat ' + (5 + playerLevel) + ' ICE', goals: [{ type: 'kill', target: 'any', count: 5 + playerLevel }], rewards: { cr: 100 + playerLevel * 50, xp: 50 + playerLevel * 25 } },
+        { name: 'Data Collect', desc: 'Earn ' + (500 + playerLevel * 200) + ' credits', goals: [{ type: 'collect', target: 'credits', count: 500 + playerLevel * 200 }], rewards: { cr: 200 + playerLevel * 50, xp: 100 + playerLevel * 25 } },
+        { name: 'Program Hunter', desc: 'Collect ' + (2 + Math.floor(playerLevel / 5)) + ' programs', goals: [{ type: 'collect', target: 'programs', count: 2 + Math.floor(playerLevel / 5) }], rewards: { cr: 300 + playerLevel * 50, xp: 150 + playerLevel * 25 } },
+        { name: 'Matrix Runner', desc: 'Complete 5 matrix sequences', goals: [{ type: 'matrix', target: 'sequences', count: 5 }], rewards: { cr: 400 + playerLevel * 50, xp: 200 + playerLevel * 25 } },
+    ];
+    return templates.map(t => ({
+        ...t,
+        id: generateId(),
+        completed: false,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 86400000,
+    }));
+}
+
+// ─── Combat Encounter Difficulty Scaling ────────────────────────────────
+function scaleEnemyForPlayer(enemy, playerLevel, difficultyMult) {
+    const mult = difficultyMult || 1.0;
+    return {
+        ...enemy,
+        hp: Math.floor(enemy.hp * (1 + (playerLevel - 1) * 0.15 * mult)),
+        maxHp: Math.floor(enemy.maxHp * (1 + (playerLevel - 1) * 0.15 * mult)),
+        dmg: Math.floor(enemy.dmg * (1 + (playerLevel - 1) * 0.12 * mult)),
+        level: Math.max(1, enemy.level + Math.floor((playerLevel - 1) * 0.5)),
+        scaled: true,
+    };
+}
+
+function generateBossForZone(zone, playerLevel) {
+    const bosses = {
+        matrix: { name: 'Matrix Core Guardian', hp: 100, dmg: 15, abilities: ['shield', 'summon'], loot: { cr: [200, 500], drop_rate: 0.9 } },
+        corpnet: { name: 'CEO Security AI', hp: 200, dmg: 25, abilities: ['overclock', 'stun'], loot: { cr: [500, 1500], drop_rate: 1.0 } },
+        darknet: { name: 'Dark Lord Protocol', hp: 300, dmg: 35, abilities: ['cloak', 'backstab', 'summon'], loot: { cr: [1000, 3000], drop_rate: 1.0 } },
+        deep_web: { name: 'Deep Web Kraken', hp: 500, dmg: 45, abilities: ['corrupt', 'spread', 'mind_control'], loot: { cr: [2000, 5000], drop_rate: 1.0 } },
+        core: { name: 'AI Prime', hp: 1000, dmg: 60, abilities: ['reality_shift', 'mind_control', 'overclock', 'summon'], loot: { cr: [5000, 15000], drop_rate: 1.0 } },
+    };
+    const template = bosses[zone] || bosses.matrix;
+    return scaleEnemyForPlayer(template, playerLevel, 1.5);
+}
+
+// ─── Crafting Success / Failure Effects ────────────────────────────────
+function applyCraftingResult(recipe, success, playerLevel) {
+    if (success) {
+        const qualityBonus = Math.random() < 0.1 + playerLevel * 0.005 ? 1.2 : 1.0;
+        return {
+            success: true,
+            item: { ...recipe.result, name: recipe.name, rarity: recipe.rarity, lvl: recipe.lvl, quality: qualityBonus },
+            bonusXp: Math.floor(recipe.lvl * 10 * qualityBonus),
+            message: 'Crafting successful!',
+        };
+    } else {
+        const salvageChance = 0.3 + playerLevel * 0.01;
+        const salvaged = Math.random() < salvageChance;
+        return {
+            success: false,
+            salvaged: salvaged ? recipe.materials?.map(m => ({ id: m.id, qty: Math.floor(m.qty / 2) })) : [],
+            message: salvaged ? 'Partial salvage' : 'All materials lost!',
+        };
+    }
+}
+
+function getCraftingBonusForStation(stationLevel) {
+    return {
+        successRate: 0.05 * stationLevel,
+        qualityChance: 0.02 * stationLevel,
+        xpBonus: 10 * stationLevel,
+        timeReduction: 0.1 * stationLevel,
+    };
+}
+
+// ─── Event System ──────────────────────────────────────────────────────
+const GAME_EVENT_SYSTEM = {
+    events: [],
+    active: null,
+    cooldown: 0,
+    trigger(event) {
+        this.events.push({ ...event, timestamp: Date.now() });
+        this.active = event;
+        this.cooldown = event.cooldown || 60000;
+        if (game) {
+            game.showNotification(event.message || 'Event triggered!', event.color || '#0ff');
+        }
+    },
+    update(dt) {
+        if (this.cooldown > 0) this.cooldown -= dt;
+        if (this.cooldown <= 0) this.active = null;
+    },
+    getActive() { return this.active; },
+    getRecent(count) { return this.events.slice(-(count || 5)); },
+};
+
+const RANDOM_EVENTS = [
+    { id: 'e1', name: 'Data Storm', message: '🌩 Data Storm incoming! +50% loot for 5 min', duration: 300000, cooldown: 1800000, color: '#0ff', effect: { lootMult: 1.5 } },
+    { id: 'e2', name: 'Corporate Raid', message: '🏢 Corporate raid! Enemy difficulty +25%', duration: 300000, cooldown: 1800000, color: '#f80', effect: { enemyMult: 1.25 } },
+    { id: 'e3', name: 'Net Boom', message: '📈 Market boom! Sell prices +30%', duration: 300000, cooldown: 1800000, color: '#0f0', effect: { sellMult: 1.3 } },
+    { id: 'e4', name: 'Ghost Signal', message: '👻 Ghost signal detected! Free buffs', duration: 300000, cooldown: 1800000, color: '#f0f', effect: { freeBuffs: true } },
+    { id: 'e5', name: 'AI Glitch', message: '🤖 AI glitch! Craft success +20%', duration: 300000, cooldown: 1800000, color: '#ff0', effect: { craftBonus: 0.2 } },
+    { id: 'e6', name: 'Dark Wave', message: '⚫ Dark wave! All prices -20%', duration: 300000, cooldown: 3600000, color: '#f00', effect: { priceMult: 0.8 } },
+];
+
+// ─── Tutorial / Onboarding System ──────────────────────────────────────
+const TUTORIAL_FLOW = [
+    { id: 'welcome', title: 'Welcome to NetSphere', text: 'You are a netrunner in a world of digital warfare.', highlight: null, action: 'next' },
+    { id: 'hub', title: 'Your Hub', text: 'This is your command center. Access all features here.', highlight: 'hub', action: 'next' },
+    { id: 'map', title: 'Net Map', text: 'Navigate the digital world through the map.', highlight: 'map_btn', action: 'goto_map' },
+    { id: 'combat', title: 'Combat', text: 'Fight ICE programs and other threats.', highlight: 'combat_btn', action: 'goto_combat' },
+    { id: 'economy', title: 'Economy', text: 'Earn credits through missions, trading, and combat.', highlight: 'credits', action: 'next' },
+    { id: 'crafting', title: 'Crafting', text: 'Combine materials to create powerful programs.', highlight: 'craft_btn', action: 'goto_craft' },
+    { id: 'skills', title: 'Skill Tree', text: 'Upgrade your abilities and unlock new powers.', highlight: 'skills_btn', action: 'goto_skills' },
+    { id: 'matrix', title: 'Matrix Mini-Game', text: 'Test your reflexes in the Matrix hacking game.', highlight: 'matrix_btn', action: 'goto_matrix' },
+    { id: 'complete', title: 'Ready', text: 'You are ready to explore the NetSphere. Good luck!', highlight: null, action: 'finish' },
+];
+
+function getTutorialStep(index) {
+    return TUTORIAL_FLOW[index] || null;
+}
+
+// ─── Time / Scheduler System ────────────────────────────────────────────
+const GAME_SCHEDULER = {
+    tasks: [],
+    add(name, interval, callback) {
+        this.tasks.push({ name, interval, callback, lastRun: Date.now(), enabled: true });
+    },
+    update() {
+        const now = Date.now();
+        this.tasks.forEach(task => {
+            if (!task.enabled) return;
+            if (now - task.lastRun >= task.interval) {
+                try { task.callback(); } catch(e) { console.warn('Scheduler task error:', task.name, e); }
+                task.lastRun = now;
+            }
+        });
+    },
+    remove(name) { this.tasks = this.tasks.filter(t => t.name !== name); },
+    enable(name) { const t = this.tasks.find(t => t.name === name); if (t) t.enabled = true; },
+    disable(name) { const t = this.tasks.find(t => t.name === name); if (t) t.enabled = false; },
+};
+
+// ─── Notification Manager ──────────────────────────────────────────────
+const NOTIFICATION_MANAGER = {
+    queue: [],
+    active: null,
+    history: [],
+    maxHistory: 50,
+    add(text, type, duration) {
+        this.queue.push({ text, type: type || 'info', duration: duration || 3000, timestamp: Date.now() });
+        if (!this.active) this.showNext();
+    },
+    showNext() {
+        if (this.queue.length === 0) { this.active = null; return; }
+        this.active = this.queue.shift();
+        this.history.push(this.active);
+        if (this.history.length > this.maxHistory) this.history.shift();
+        if (game) {
+            const colors = { info: '#0ff', success: '#0f0', warning: '#ff0', error: '#f00', achievement: '#f0f' };
+            game._notification = { text: this.active.text, color: colors[this.active.type] || '#0ff', startTime: Date.now() };
+        }
+        setTimeout(() => {
+            if (game) game._notification = null;
+            this.showNext();
+        }, this.active.duration);
+    },
+    clear() { this.queue = []; this.active = null; if (game) game._notification = null; },
+};
+
+// ─── Audio Manager ────────────────────────────────────────────────────
+const AUDIO_MANAGER = {
+    ctx: null,
+    initialized: false,
+    volume: 0.3,
+    musicVolume: 0.1,
+    init() {
+        try {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            this.initialized = true;
+        } catch(e) { this.initialized = false; }
+    },
+    play(freq, type, duration, vol) {
+        if (!this.initialized || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.frequency.value = freq || 440;
+        osc.type = type || 'square';
+        gain.gain.value = (vol || this.volume) * 0.3;
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + (duration || 0.1));
+        osc.start(); osc.stop(this.ctx.currentTime + (duration || 0.1));
+    },
+    playMelody(notes, baseFreq) {
+        notes.forEach((note, i) => {
+            setTimeout(() => {
+                this.play(baseFreq + note * 50, 'square', 0.15, this.volume * 0.5);
+            }, i * 100);
+        });
+    },
+    playClick() { this.play(800, 'square', 0.05); },
+    playHack() { this.play(400, 'sawtooth', 0.2); },
+    playDamage() { this.play(200, 'square', 0.15); },
+    playCrit() { this.play(1200, 'sawtooth', 0.3); },
+    playWin() { this.playMelody([0, 2, 4, 8], 523); },
+    playLose() { this.playMelody([4, 2, 0, -2], 400); },
+    playLevelUp() { this.playMelody([0, 4, 8, 12], 400); },
+};
+
+// ─── Particle Effects ──────────────────────────────────────────────────
+class Particle {
+    constructor(x, y, vx, vy, life, color, size, type) {
+        this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+        this.life = life; this.maxLife = life; this.color = color || '#0ff';
+        this.size = size || 3; this.type = type || 'circle';
+    }
+    update(dt) {
+        this.x += this.vx * (dt / 16);
+        this.y += this.vy * (dt / 16);
+        this.life -= dt;
+        this.vy += 0.1;
+    }
+    draw(ctx) {
+        const alpha = Math.max(0, this.life / this.maxLife);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = this.color;
+        if (this.type === 'circle') {
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2); ctx.fill();
+        } else {
+            ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+        }
+        ctx.globalAlpha = 1;
+    }
+    get dead() { return this.life <= 0; }
+}
+
+class ParticleSystem {
+    constructor() { this.particles = []; }
+    emit(x, y, count, color, spread, life, size, type) {
+        for (let i = 0; i < (count || 10); i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * (spread || 3);
+            this.particles.push(new Particle(
+                x + (Math.random() - 0.5) * 10,
+                y + (Math.random() - 0.5) * 10,
+                Math.cos(angle) * speed,
+                Math.sin(angle) * speed,
+                life || 500 + Math.random() * 500,
+                color || '#0ff',
+                size || 2 + Math.random() * 2,
+                type || 'circle'
+            ));
+        }
+    }
+    update(dt) {
+        this.particles.forEach(p => p.update(dt));
+        this.particles = this.particles.filter(p => !p.dead);
+    }
+    draw(ctx) {
+        this.particles.forEach(p => p.draw(ctx));
+    }
+    get count() { return this.particles.length; }
+}
+
+// ─── Animation Manager ─────────────────────────────────────────────────
+const ANIMATION_MANAGER = {
+    animations: [],
+    add(type, data, duration) {
+        const id = generateId();
+        this.animations.push({ id, type, data, startTime: Date.now(), duration: duration || 1000, progress: 0 });
+        return id;
+    },
+    update() {
+        const now = Date.now();
+        this.animations.forEach(a => {
+            a.progress = Math.min(1, (now - a.startTime) / a.duration);
+        });
+        this.animations = this.animations.filter(a => a.progress < 1);
+    },
+    getActive(type) { return this.animations.filter(a => a.type === type && a.progress < 1); },
+    clear() { this.animations = []; },
+};
+
+function lerp(a, b, t) { return a + (b - a) * Math.max(0, Math.min(1, t)); }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+// ─── Damage Calculation ────────────────────────────────────────────────
+function calculateDamage(attacker, defender, modifiers) {
+    const baseAtk = attacker.atk || 10;
+    const baseDef = defender.def || 5;
+    const critChance = (attacker.crit || 0.05) + (modifiers?.critBonus || 0);
+    const critMult = (attacker.critMult || 1.5) + (modifiers?.critDamageBonus || 0);
+    const isCrit = Math.random() < critChance;
+    const rawDamage = Math.max(1, baseAtk - baseDef * 0.5 + (Math.random() - 0.5) * 5);
+    const damage = isCrit ? Math.floor(rawDamage * critMult) : Math.floor(rawDamage);
+    const elemental = computeElementalDamage(attacker, defender, modifiers);
+    return {
+        physical: damage,
+        elemental: elemental,
+        total: damage + elemental,
+        crit: isCrit,
+        blocked: Math.random() < (defender.block || 0),
+        dodged: Math.random() < (defender.evasion || 0),
+    };
+}
+
+function computeElementalDamage(attacker, defender, modifiers) {
+    const atkEle = attacker.elemental || 0;
+    const defRes = defender.resistance || 0;
+    const effectiveness = modifiers?.elementEffect || 1.0;
+    return Math.max(0, Math.floor((atkEle - defRes * 0.3 + (Math.random() - 0.5) * 2) * effectiveness));
+}
+
+function applyDamageResult(target, result, game) {
+    if (result.blocked) return { blocked: true, message: 'Blocked!', damage: 0 };
+    if (result.dodged) return { dodged: true, message: 'Dodged!', damage: 0 };
+    target.hp = Math.max(0, (target.hp || 0) - result.total);
+    if (result.crit && game) game.showNotification('CRIT! ' + result.total + ' dmg', '#f0f');
+    return { damage: result.total, crit: result.crit, message: '-' + result.total + ' HP' };
+}
+
+// ─── Combat Helper ─────────────────────────────────────────────────────
+function startEncounter(player, enemy, zone) {
+    return {
+        player: { ...player, hp: player.hp || player.maxHp, maxHp: player.maxHp },
+        enemy: { ...enemy, hp: enemy.hp || enemy.maxHp, maxHp: enemy.maxHp },
+        zone: zone || 'matrix',
+        turn: 'player',
+        turnCount: 0,
+        log: ['Battle started!'],
+        loot: [],
+    };
+}
+
+function getDefaultEnemy(zone, playerLevel) {
+    const zoneEnemyPools = {
+        matrix: [{ name: 'Spam Bot', hp: 30, dmg: 5, reward: { cr: 15, xp: 5 } }, { name: 'Code Worm', hp: 20, dmg: 8, reward: { cr: 10, xp: 8 } }],
+        corpnet: [{ name: 'Trojan Horse', hp: 50, dmg: 12, reward: { cr: 30, xp: 15 } }, { name: 'Data Vampire', hp: 40, dmg: 15, reward: { cr: 25, xp: 20 } }],
+        darknet: [{ name: 'Dark Phantom', hp: 70, dmg: 18, reward: { cr: 50, xp: 25 } }, { name: 'Shadow Viper', hp: 60, dmg: 22, reward: { cr: 45, xp: 30 } }],
+        deep_web: [{ name: 'Deep One', hp: 100, dmg: 25, reward: { cr: 80, xp: 40 } }, { name: 'Void Walker', hp: 120, dmg: 30, reward: { cr: 100, xp: 50 } }],
+        core: [{ name: 'Core Guardian', hp: 200, dmg: 40, reward: { cr: 200, xp: 100 } }, { name: 'AI Sentinel', hp: 250, dmg: 50, reward: { cr: 250, xp: 120 } }],
+    };
+    const pool = zoneEnemyPools[zone] || zoneEnemyPools.matrix;
+    const template = pool[Math.floor(Math.random() * pool.length)];
+    return scaleEnemyForPlayer(template, playerLevel || 1, 1.0);
+}
+
+function generateLootDrop(enemy, playerLevel, lootMult) {
+    const mult = lootMult || 1.0;
+    const baseCr = (enemy.reward?.cr || 10) * mult;
+    const baseXp = (enemy.reward?.xp || 5) * mult;
+    const items = [];
+    const dropChance = (enemy.loot?.drop_rate || 0.3) * mult;
+    if (Math.random() < dropChance) {
+        items.push({
+            name: 'Data Fragment',
+            type: 'material',
+            rarity: Math.random() < 0.1 ? 'rare' : 'common',
+            qty: Math.floor(1 + Math.random() * 3),
+        });
+    }
+    return { cr: Math.floor(baseCr + Math.random() * baseCr * 0.5), xp: Math.floor(baseXp), items };
+}
+
+// ─── Matrix Mini-Game ──────────────────────────────────────────────────
+function generateMatrixGame(difficulty) {
+    const size = Math.min(8, 3 + Math.floor(difficulty || 1));
+    const sequence = [];
+    for (let i = 0; i < size; i++) {
+        sequence.push(Math.floor(Math.random() * 4));
+    }
+    return {
+        sequence,
+        size,
+        playerIndex: 0,
+        playerSequence: [],
+        started: false,
+        timeLimit: 2000 + (size * 500),
+        startTime: 0,
+        done: false,
+        success: false,
+        difficulty: difficulty || 1,
+    };
+}
+
+function checkMatrixInput(gameState, direction) {
+    if (gameState.done || !gameState.started) return null;
+    const expected = gameState.sequence[gameState.playerIndex];
+    if (direction === expected) {
+        gameState.playerIndex++;
+        if (gameState.playerIndex >= gameState.sequence.length) {
+            gameState.done = true;
+            gameState.success = true;
+        }
+        return true;
+    } else {
+        gameState.done = true;
+        gameState.success = false;
+        return false;
+    }
+}
+
+// ─── Save / Data Migration ─────────────────────────────────────────────
+function migrateSaveData(data) {
+    if (!data || typeof data !== 'object') return null;
+    const version = data.saveVersion || 0;
+    if (version < 1) {
+        data.character = data.character || data.player || {};
+        data.character.inventory = data.character.inventory || [];
+        data.character.equipment = data.character.equipment || {};
+        data.character.skills = data.character.skills || [];
+        data.character.missions = data.character.missions || [];
+        data.meta = data.meta || {};
+    }
+    if (version < 2) {
+        data.character.achievements = data.character.achievements || [];
+        data.character.reputation = data.character.reputation || {};
+        data.character.battle_pass_level = data.character.battle_pass_level || 0;
+        data.character.battle_pass_xp = data.character.battle_pass_xp || 0;
+    }
+    if (version < 3) {
+        data.character.collected_titles = data.character.collected_titles || [];
+        data.character.active_title = data.character.active_title || '';
+        data.character.stats = data.character.stats || {};
+    }
+    data.saveVersion = Math.max(version, 3);
+    return data;
+}
+
+function verifySaveIntegrity(data) {
+    const checks = [];
+    if (!data.character) checks.push('Missing character data');
+    if (typeof data.character?.credits !== 'number') checks.push('Invalid credits');
+    if (typeof data.character?.level !== 'number') checks.push('Invalid level');
+    if (!Array.isArray(data.character?.inventory)) checks.push('Invalid inventory');
+    if (data.character?.hp <= 0) checks.push('Character is dead');
+    return checks.length === 0 ? { valid: true } : { valid: false, errors: checks };
+}
+
+// ─── Title / Titling System ───────────────────────────────────────────
+const TITLE_SYSTEM = {
+    titles: [
+        { id: 'beginner', name: 'Novice', desc: 'Started your journey', unlock: () => true },
+        { id: 'fighter', name: 'Fighter', desc: 'Win 10 battles', unlock: (s) => (s.battlesWon || 0) >= 10 },
+        { id: 'veteran', name: 'Veteran', desc: 'Win 100 battles', unlock: (s) => (s.battlesWon || 0) >= 100 },
+        { id: 'legend', name: 'Legend', desc: 'Reach level 50', unlock: (s) => (s.level || 0) >= 50 },
+        { id: 'rich', name: 'Tycoon', desc: 'Earn 1M credits total', unlock: (s) => (s.totalCreditsEarned || 0) >= 1000000 },
+        { id: 'collector', name: 'Collector', desc: 'Own 50 unique items', unlock: (s) => (s.totalItems || 0) >= 50 },
+        { id: 'crafter', name: 'Artisan', desc: 'Craft 100 items', unlock: (s) => (s.itemsCrafted || 0) >= 100 },
+        { id: 'hacker', name: 'Ghost', desc: 'Hack 1000 targets', unlock: (s) => (s.hacksPerformed || 0) >= 1000 },
+        { id: 'explorer', name: 'Explorer', desc: 'Visit all zones', unlock: (s) => s.allZonesVisited },
+        { id: 'completionist', name: 'Completionist', desc: 'Complete all achievements', unlock: (s) => s.allAchievements },
+    ],
+    checkUnlocks(stats) {
+        return this.titles
+            .filter(t => !stats.collectedTitles?.includes(t.id))
+            .filter(t => t.unlock(stats))
+            .map(t => t.id);
+    },
+    getTitle(id) { return this.titles.find(t => t.id === id); },
+};
+
+// ─── Streak / Daily Login System ───────────────────────────────────────
+const DAILY_LOGIN_SYSTEM = {
+    streak: 0,
+    lastLogin: null,
+    rewards: [
+        { day: 1, reward: { cr: 100, xp: 50 } },
+        { day: 2, reward: { cr: 200, xp: 100, item: 'Health Pack' } },
+        { day: 3, reward: { cr: 300, xp: 150 } },
+        { day: 4, reward: { cr: 500, xp: 250, item: 'Energy Drink' } },
+        { day: 5, reward: { cr: 750, xp: 350 } },
+        { day: 6, reward: { cr: 1000, xp: 500, item: 'Rare Program Shard' } },
+        { day: 7, reward: { cr: 2000, xp: 1000, item: 'Premium Crate' } },
+    ],
+    checkLogin(now) {
+        const today = new Date(now || Date.now()).toDateString();
+        if (!this.lastLogin) {
+            this.streak = 1;
+        } else {
+            const last = new Date(this.lastLogin).toDateString();
+            const diff = (new Date(today) - new Date(last)) / 86400000;
+            if (diff === 1) this.streak++;
+            else if (diff > 1) this.streak = 1;
+        }
+        this.lastLogin = now || Date.now();
+        const dayInCycle = ((this.streak - 1) % 7) + 1;
+        return { streak: this.streak, reward: this.rewards.find(r => r.day === dayInCycle), dayInCycle };
+    },
+    getNextReward() {
+        const dayInCycle = ((this.streak) % 7) + 1;
+        return this.rewards.find(r => r.day === dayInCycle);
+    },
+};
+
+// ─── Game Analytics ────────────────────────────────────────────────────
+const GAME_ANALYTICS = {
+    events: [],
+    sessionStart: Date.now(),
+    track(category, action, label, value) {
+        this.events.push({
+            category, action, label, value,
+            timestamp: Date.now(),
+            sessionTime: Date.now() - this.sessionStart,
+        });
+    },
+    getStats() {
+        return {
+            totalEvents: this.events.length,
+            sessionDuration: Date.now() - this.sessionStart,
+            combatEvents: this.events.filter(e => e.category === 'combat').length,
+            economyEvents: this.events.filter(e => e.category === 'economy').length,
+            socialEvents: this.events.filter(e => e.category === 'social').length,
+        };
+    },
+    getEventCount(category) { return this.events.filter(e => e.category === category).length; },
+    clear() { this.events = []; this.sessionStart = Date.now(); },
+};
+
+// ─── Difficulty / Scaling Helpers ─────────────────────────────────────
+const SCALING_TABLE = {
+    xpPerLevel: [
+        0, 100, 250, 500, 800, 1200, 1700, 2300, 3000, 3800,
+        4800, 5900, 7200, 8600, 10200, 12000, 14000, 16200, 18600, 21200,
+        24000, 27000, 30200, 33600, 37200, 41000, 45000, 49200, 53600, 58200,
+    ],
+    hpPerLevel: [100, 110, 125, 140, 160, 180, 205, 230, 260, 290, 325, 360, 400, 440, 485, 530, 580, 630, 685, 740],
+    atkPerLevel: [10, 12, 15, 18, 22, 26, 31, 36, 42, 48, 55, 62, 70, 78, 87, 96, 106, 116, 127, 138],
+    defPerLevel: [5, 6, 8, 10, 12, 15, 18, 21, 25, 29, 34, 39, 45, 51, 58, 65, 73, 81, 90, 100],
+};
+
+function getStatForLevel(stat, level) {
+    const table = SCALING_TABLE[stat] || SCALING_TABLE.hpPerLevel;
+    return table[Math.min(level, table.length - 1)] || (table[table.length - 1] + (level - table.length) * table[table.length - 1] * 0.1);
+}
+
+function scaleStat(base, level, scaleFactor) {
+    return Math.floor(base * (1 + (level - 1) * (scaleFactor || 0.1)));
+}
+
+function getMonsterForLevelRange(minLvl, maxLvl) {
+    const lvl = minLvl + Math.floor(Math.random() * (maxLvl - minLvl + 1));
+    return {
+        name: 'Unknown Entity',
+        level: lvl,
+        hp: scaleStat(30, lvl, 0.15),
+        dmg: scaleStat(5, lvl, 0.12),
+        def: scaleStat(2, lvl, 0.1),
+        reward: { cr: scaleStat(10, lvl, 0.2), xp: scaleStat(5, lvl, 0.15) },
+    };
+}
+
+function calculateRewardForDifficulty(baseReward, difficultyMult, playerLevel) {
+    const lvlBonus = 1 + (playerLevel - 1) * 0.05;
+    return Math.floor(baseReward * difficultyMult * lvlBonus);
+}
+
+function calculateBossReward(playerLevel, bossTier) {
+    const tierMults = { basic: 3, elite: 5, legendary: 10, mythic: 20 };
+    const mult = tierMults[bossTier] || 3;
+    return {
+        cr: calculateRewardForDifficulty(100, mult, playerLevel),
+        xp: calculateRewardForDifficulty(50, mult, playerLevel),
+        bonus: Math.random() < 0.3 + playerLevel * 0.005 ? 'rare_item' : null,
+    };
+}
+
+// ─── Color / Theme System ──────────────────────────────────────────────
+const THEME_SYSTEM = {
+    current: 'default',
+    themes: {
+        default: { bg: '#0a0a1a', panel: '#0d0d1a', accent: '#0ff', text: '#fff', border: '#333', highlight: '#ff0', danger: '#f00', success: '#0f0' },
+        neon: { bg: '#000010', panel: '#050515', accent: '#f0f', text: '#e0e0ff', border: '#808', highlight: '#ff0', danger: '#f44', success: '#0f0' },
+        matrix: { bg: '#001000', panel: '#001500', accent: '#0f0', text: '#00ff00', border: '#030', highlight: '#0ff', danger: '#f00', success: '#0f0' },
+        amber: { bg: '#100800', panel: '#150a00', accent: '#f80', text: '#ffd700', border: '#420', highlight: '#ff0', danger: '#f44', success: '#0f0' },
+        ice: { bg: '#000020', panel: '#050530', accent: '#0ff', text: '#c0c0ff', border: '#226', highlight: '#fff', danger: '#f44', success: '#0f0' },
+        blood: { bg: '#200000', panel: '#2a0000', accent: '#f00', text: '#ffc0c0', border: '#400', highlight: '#ff0', danger: '#f00', success: '#0f0' },
+    },
+    get(name) { return this.themes[name] || this.themes.default; },
+    set(name) { if (this.themes[name]) { this.current = name; return true; } return false; },
+    getCurrent() { return this.themes[this.current] || this.themes.default; },
+};
+
+// ─── Idle / Offline Progress ───────────────────────────────────────────
+function calculateOfflineProgress(player, secondsAway) {
+    const cappedSeconds = Math.min(secondsAway, 28800);
+    const power = computePlayerPowerLevel(player.stats, player.equipment, player.skills);
+    const earnRate = Math.max(0.1, power * 0.01);
+    const creditsEarned = Math.floor(cappedSeconds * earnRate * 0.5);
+    const xpEarned = Math.floor(cappedSeconds * earnRate * 0.25);
+    const enemyKills = Math.floor(cappedSeconds / (60 + Math.random() * 60));
+    const lootItems = [];
+    if (enemyKills > 0 && Math.random() < 0.1) {
+        lootItems.push({ name: 'Offline Cache', type: 'material', rarity: 'common', qty: 1 });
+    }
+    return {
+        secondsAway: cappedSeconds,
+        creditsEarned,
+        xpEarned,
+        enemyKills,
+        lootItems,
+        message: `While you were away (+${formatDuration(cappedSeconds * 1000)}): +${creditsEarned}cr, +${xpEarned}xp, ${enemyKills} auto-kills`,
+    };
+}
+
+// ─── Clan System ───────────────────────────────────────────────────────
+function createClan(name, tag, founder) {
+    return {
+        id: generateId(),
+        name,
+        tag,
+        founder: founder,
+        members: [{ id: founder, role: 'leader', joinedAt: Date.now() }],
+        level: 1,
+        experience: 0,
+        treasury: 0,
+        vault: [],
+        wars: [],
+        created: Date.now(),
+        description: '',
+        logo: '⚔',
+    };
+}
+
+function getClanLevelXp(level) {
+    return 1000 + (level - 1) * 500;
+}
+
+function addClanExperience(clan, amount) {
+    clan.experience = (clan.experience || 0) + amount;
+    const needed = getClanLevelXp(clan.level);
+    if (clan.experience >= needed) {
+        clan.experience -= needed;
+        clan.level++;
+        return { leveled: true, newLevel: clan.level };
+    }
+    return { leveled: false, newLevel: clan.level };
+}
+
+function getClanPerks(level) {
+    return {
+        maxMembers: 5 + level * 2,
+        treasuryBonus: level * 0.05,
+        xpBonus: level * 0.02,
+        warSlots: 1 + Math.floor(level / 3),
+        vaultSlots: 10 + level * 5,
+    };
+}
+
+// ─── Tournament / Event System ─────────────────────────────────────────
+function generateTournament(tier, playerLevel) {
+    const participantsCount = 4 + tier * 2;
+    const participants = [];
+    for (let i = 0; i < participantsCount; i++) {
+        participants.push({
+            name: 'Runner_' + Math.random().toString(36).substring(2, 6),
+            power: Math.floor(playerLevel * (5 + Math.random() * 5)),
+            level: Math.max(1, playerLevel + Math.floor(Math.random() * 5 - 2)),
+        });
+    }
+    return {
+        id: generateId(),
+        tier,
+        participants,
+        brackets: [],
+        currentRound: 0,
+        finished: false,
+        rewards: {
+            cr: 500 * tier * playerLevel,
+            xp: 250 * tier * playerLevel,
+            topPrize: 2000 * tier * playerLevel,
+        },
+    };
+}
+
+function simulateTournamentBracket(tournament, playerPower) {
+    const participants = tournament.participants;
+    const brackets = [];
+    const shuffled = [...participants].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < shuffled.length; i += 2) {
+        if (i + 1 < shuffled.length) {
+            brackets.push({ p1: shuffled[i], p2: shuffled[i + 1], winner: null });
+        } else {
+            brackets.push({ p1: shuffled[i], p2: { name: 'BYE', power: 0, level: 1 }, winner: shuffled[i] });
+        }
+    }
+    tournament.brackets = brackets;
+    tournament.currentRound = 1;
+    return brackets;
+}
+
+function simulateMatch(p1, p2) {
+    const p1Score = p1.power + Math.random() * 20;
+    const p2Score = p2.power + Math.random() * 20;
+    return p1Score >= p2Score ? { winner: p1, loser: p2, score: Math.floor(p1Score) + '-' + Math.floor(p2Score) } : { winner: p2, loser: p1, score: Math.floor(p2Score) + '-' + Math.floor(p1Score) };
+}
+
+// ─── Quest Reward Calculator ───────────────────────────────────────────
+function calculateQuestReward(quest, playerLevel, difficultyMult) {
+    const mult = difficultyMult || 1.0;
+    const base = quest.rewards || { cr: 100, xp: 50 };
+    const scaledCr = Math.floor((base.cr || 100) * (1 + playerLevel * 0.15) * mult);
+    const scaledXp = Math.floor((base.xp || 50) * (1 + playerLevel * 0.12) * mult);
+    const bonusItems = [];
+    if (Math.random() < 0.1 + playerLevel * 0.005) {
+        bonusItems.push({ name: 'Quest Cache', type: 'material', rarity: 'uncommon', qty: 1 });
+    }
+    if (Math.random() < 0.02 + playerLevel * 0.002) {
+        bonusItems.push({ name: 'Rare Token', type: 'currency', rarity: 'rare', qty: 1 });
+    }
+    return { cr: scaledCr, xp: scaledXp, items: bonusItems };
+}
+
+// ─── Faction Reputation ────────────────────────────────────────────────
+function addReputation(factionId, amount, reputation) {
+    const current = reputation[factionId] || 0;
+    const newValue = Math.min(1000, Math.max(-1000, current + amount));
+    reputation[factionId] = newValue;
+    const tier = getReputationTier(newValue);
+    return { factionId, oldValue: current, newValue, tier, changed: current !== newValue };
+}
+
+function getReputationTier(value) {
+    if (value >= 900) return { name: 'Legendary', mult: 3.0, color: '#ff0' };
+    if (value >= 700) return { name: 'Honored', mult: 2.0, color: '#f0f' };
+    if (value >= 500) return { name: 'Friendly', mult: 1.5, color: '#0f0' };
+    if (value >= 200) return { name: 'Neutral', mult: 1.0, color: '#888' };
+    if (value >= -200) return { name: 'Unfriendly', mult: 0.8, color: '#f80' };
+    if (value >= -500) return { name: 'Hostile', mult: 0.5, color: '#f00' };
+    return { name: 'Hated', mult: 0.2, color: '#800' };
+}
+
+function getReputationPerks(factionId, reputation) {
+    const value = reputation[factionId] || 0;
+    const tier = getReputationTier(value);
+    const perks = [];
+    if (value >= 100) perks.push('Shop discount 10%');
+    if (value >= 300) perks.push('Unlock faction quests');
+    if (value >= 500) perks.push('Faction equipment 20% off');
+    if (value >= 700) perks.push('Unlock faction titles');
+    if (value >= 900) perks.push('Legendary faction rewards');
+    if (value <= -200) perks.push('Faction hunters after you!');
+    return { tier, perks };
+}
+
+// ─── Battle Pass System ────────────────────────────────────────────────
+const BATTLE_PASS_TIERS = Array.from({ length: 50 }, (_, i) => ({
+    tier: i + 1,
+    xpRequired: 100 + i * 25,
+    reward: i % 5 === 0
+        ? { cr: 500 + i * 100, xp: 200 + i * 50, premium: true, item: 'Battle Pass Crate #' + (i + 1) }
+        : { cr: 100 + i * 50, xp: 50 + i * 25, premium: false },
+}));
+
+function getBattlePassReward(tier, isPremium) {
+    const data = BATTLE_PASS_TIERS[tier - 1];
+    if (!data) return null;
+    if (data.reward.premium && !isPremium) return { cr: Math.floor(data.reward.cr * 0.5), xp: Math.floor(data.reward.xp * 0.5), premium: false };
+    return data.reward;
+}
+
+function getBattlePassProgress(currentXp, currentTier) {
+    const totalXp = currentXp || 0;
+    let xp = totalXp;
+    let tier = currentTier || 1;
+    while (tier < 50) {
+        const needed = BATTLE_PASS_TIERS[tier - 1]?.xpRequired || 100;
+        if (xp >= needed) { xp -= needed; tier++; }
+        else break;
+    }
+    const currentNeeded = BATTLE_PASS_TIERS[tier - 1]?.xpRequired || 100;
+    return { tier: Math.min(tier, 50), xp, needed: currentNeeded, progress: Math.min(1, xp / currentNeeded), maxed: tier >= 50 };
+}
+
+// ─── Inventory Management ──────────────────────────────────────────────
+function addItemToInventory(inventory, item, stackable) {
+    if (stackable && item.id) {
+        const existing = inventory.find(i => i.id === item.id && i.type === item.type);
+        if (existing) {
+            existing.qty = (existing.qty || 1) + (item.qty || 1);
+            return { added: true, stacked: true, qty: existing.qty };
+        }
+    }
+    inventory.push({ ...item, qty: item.qty || 1, uid: generateId() });
+    return { added: true, stacked: false };
+}
+
+function removeItemFromInventory(inventory, uid, qty) {
+    const idx = inventory.findIndex(i => i.uid === uid);
+    if (idx === -1) return false;
+    const item = inventory[idx];
+    if (item.qty && item.qty > 1 && qty && qty < item.qty) {
+        item.qty -= qty;
+        return true;
+    }
+    inventory.splice(idx, 1);
+    return true;
+}
+
+function getInventoryValue(inventory) {
+    const rarityValues = { common: 10, uncommon: 25, rare: 100, epic: 500, legendary: 2000 };
+    return inventory.reduce((sum, item) => {
+        return sum + (rarityValues[item.rarity] || 10) * (item.qty || 1);
+    }, 0);
+}
+
+function getInventoryCountByType(inventory, type) {
+    return inventory.filter(i => i.type === type).reduce((sum, i) => sum + (i.qty || 1), 0);
+}
+
+// ─── Equipment Management ──────────────────────────────────────────────
+function getEquipmentStats(equipment) {
+    const stats = { atk: 0, def: 0, hack: 0, spd: 0, crit: 0 };
+    Object.values(equipment || {}).forEach(item => {
+        if (!item) return;
+        stats.atk += item.atk || 0;
+        stats.def += item.def || 0;
+        stats.hack += item.hack || 0;
+        stats.spd += item.spd || 0;
+        stats.crit += item.crit || 0;
+    });
+    return stats;
+}
+
+function getEmptyEquipmentSlots(equipment) {
+    const slots = ['weapon', 'armor', 'head', 'accessory', 'boots', 'implant'];
+    return slots.filter(s => !equipment[s]);
+}
+
+function canEquipItem(item, playerLevel, equipment) {
+    if (item.lvl && playerLevel < item.lvl) return { can: false, reason: 'Level too low' };
+    if (equipment[item.slot]) return { can: false, reason: 'Slot occupied' };
+    return { can: true };
+}
+
+// ─── Crafting System ───────────────────────────────────────────────────
+function getAvailableRecipes(playerLevel, ownedCatalysts) {
+    return RECIPES_DATA.filter(r => {
+        if (r.lvl && playerLevel < r.lvl) return false;
+        if (r.catalyst && !ownedCatalysts?.includes(r.catalyst)) return false;
+        return true;
+    });
+}
+
+function canCraftRecipe(recipe, inventory) {
+    const materials = recipe.materials || [];
+    for (const mat of materials) {
+        const count = inventory.filter(i => i.id === mat.id || i.name === mat.name)
+            .reduce((s, i) => s + (i.qty || 1), 0);
+        if (count < (mat.qty || 1)) return { can: false, missing: mat.name };
+    }
+    return { can: true };
+}
+
+function consumeMaterials(recipe, inventory) {
+    const materials = recipe.materials || [];
+    materials.forEach(mat => {
+        const qty = mat.qty || 1;
+        let remaining = qty;
+        while (remaining > 0) {
+            const idx = inventory.findIndex(i => (i.id === mat.id || i.name === mat.name) && (i.qty || 1) > 0);
+            if (idx === -1) break;
+            const item = inventory[idx];
+            if ((item.qty || 1) > remaining) {
+                item.qty -= remaining;
+                remaining = 0;
+            } else {
+                remaining -= item.qty || 1;
+                inventory.splice(idx, 1);
+            }
+        }
+    });
+}
+
+// ─── Random / Seed Helpers ─────────────────────────────────────────────
+const RNG = {
+    seed: Date.now(),
+    setSeed(s) { this.seed = s; },
+    next() {
+        this.seed = (this.seed * 1664525 + 1013904223) & 0x7fffffff;
+        return this.seed / 0x7fffffff;
+    },
+    nextInt(min, max) { return Math.floor(this.next() * (max - min + 1)) + min; },
+    nextFloat(min, max) { return this.next() * (max - min) + min; },
+    pick(arr) { return arr[Math.floor(this.next() * arr.length)]; },
+    shuffle(arr) {
+        const result = [...arr];
+        for (let i = result.length - 1; i > 0; i--) {
+            const j = Math.floor(this.next() * (i + 1));
+            [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+    },
+};
+
+// ─── Timer / Cooldown Manager ──────────────────────────────────────────
+const TIMER_MANAGER = {
+    timers: [],
+    add(name, duration, callback, repeat) {
+        const timer = { name, remaining: duration, duration, callback, repeat: repeat || false, paused: false, id: generateId() };
+        this.timers.push(timer);
+        return timer.id;
+    },
+    update(dt) {
+        this.timers.forEach(t => {
+            if (t.paused) return;
+            t.remaining -= dt;
+            if (t.remaining <= 0) {
+                try { t.callback(); } catch(e) { console.warn('Timer error:', t.name, e); }
+                if (t.repeat) t.remaining = t.duration;
+                else t.done = true;
+            }
+        });
+        this.timers = this.timers.filter(t => !t.done);
+    },
+    pause(name) { const t = this.timers.find(t => t.name === name); if (t) t.paused = true; },
+    resume(name) { const t = this.timers.find(t => t.name === name); if (t) t.paused = false; },
+    remove(name) { this.timers = this.timers.filter(t => t.name !== name); },
+    clear() { this.timers = []; },
+    getRemaining(name) { const t = this.timers.find(t => t.name === name); return t ? t.remaining : 0; },
+};
+
+// ─── Status Effect / Buff System ──────────────────────────────────────
+function createStatusEffect(id, name, duration, type, magnitude, color, icon) {
+    return { id, name, duration, remaining: duration, type, magnitude, color: color || '#0ff', icon: icon || '⚡', active: true };
+}
+
+const STATUS_EFFECTS = {
+    poison: (magnitude) => createStatusEffect('poison', 'Poison', 5000, 'dot', magnitude || 5, '#0f0', '☠'),
+    burn: (magnitude) => createStatusEffect('burn', 'Burn', 3000, 'dot', magnitude || 8, '#f80', '🔥'),
+    freeze: (magnitude) => createStatusEffect('freeze', 'Freeze', 2000, 'debuff', magnitude || 0.5, '#0ff', '❄'),
+    stun: (magnitude) => createStatusEffect('stun', 'Stun', 1500, 'debuff', magnitude || 1, '#ff0', '⚡'),
+    shield: (magnitude) => createStatusEffect('shield', 'Shield', 5000, 'buff', magnitude || 20, '#00f', '🛡'),
+    berserk: (magnitude) => createStatusEffect('berserk', 'Berserk', 4000, 'buff', magnitude || 0.3, '#f00', '💢'),
+    regen: (magnitude) => createStatusEffect('regen', 'Regen', 5000, 'buff', magnitude || 5, '#0f0', '💚'),
+    stealth: (magnitude) => createStatusEffect('stealth', 'Stealth', 8000, 'buff', magnitude || 1, '#808', '👻'),
+    slow: (magnitude) => createStatusEffect('slow', 'Slow', 3000, 'debuff', magnitude || 0.5, '#888', '🐌'),
+    weaken: (magnitude) => createStatusEffect('weaken', 'Weaken', 3000, 'debuff', magnitude || 0.5, '#f0f', '💫'),
+};
+
+function applyStatusEffect(target, effect) {
+    if (!target.statusEffects) target.statusEffects = [];
+    const existing = target.statusEffects.find(e => e.id === effect.id);
+    if (existing) {
+        existing.remaining = Math.max(existing.remaining, effect.duration);
+        existing.magnitude = Math.max(existing.magnitude, effect.magnitude);
+        return { refreshed: true, effect: existing };
+    }
+    target.statusEffects.push(effect);
+    return { added: true, effect };
+}
+
+function updateStatusEffects(target, dt) {
+    if (!target.statusEffects) return [];
+    const results = [];
+    target.statusEffects.forEach(effect => {
+        if (!effect.active) return;
+        effect.remaining -= dt;
+        if (effect.type === 'dot') {
+            if (effect.id === 'poison') results.push({ type: 'damage', amount: effect.magnitude, reason: effect.name });
+            if (effect.id === 'burn') results.push({ type: 'damage', amount: effect.magnitude * 1.5, reason: effect.name });
+        }
+        if (effect.type === 'buff') {
+            if (effect.id === 'regen') results.push({ type: 'heal', amount: effect.magnitude, reason: effect.name });
+        }
+    });
+    target.statusEffects = target.statusEffects.filter(e => e.active && e.remaining > 0);
+    return results;
+}
+
+function getStatusEffectModifiers(target, stat) {
+    if (!target.statusEffects) return 1.0;
+    let mult = 1.0;
+    target.statusEffects.forEach(e => {
+        if (e.id === 'freeze' && (stat === 'spd' || stat === 'atk')) mult *= (1 - e.magnitude);
+        if (e.id === 'slow' && stat === 'spd') mult *= (1 - e.magnitude);
+        if (e.id === 'weaken' && stat === 'atk') mult *= (1 - e.magnitude);
+        if (e.id === 'berserk' && stat === 'atk') mult *= (1 + e.magnitude);
+        if (e.id === 'shield' && stat === 'def') mult *= (1 + e.magnitude * 0.1);
+    });
+    return mult;
+}
+
+// ─── Store / Shop UI Helpers ──────────────────────────────────────────
+function generateShopInventory(shopId, playerLevel) {
+    const shops = {
+        general: { items: ['health_pack', 'energy_drink', 'data_fragment'], markup: 1.2 },
+        arms: { items: ['code_breaker', 'ice_pick', 'data_sword'], markup: 1.5 },
+        tech: { items: ['neural_booster', 'shield_generator', 'speed_chip'], markup: 2.0 },
+        black: { items: ['rare_program', 'illegal_software', 'hack_toolkit'], markup: 3.0 },
+        cyber: { items: ['neural_accelerator', 'optical_enhancer', 'subdermal_armor'], markup: 2.5 },
+    };
+    const shop = shops[shopId] || shops.general;
+    const items = ITEMS_DATA.filter(i => shop.items.includes(i.id));
+    return items.map(item => ({
+        ...item,
+        basePrice: item.cost || 100,
+        price: Math.floor((item.cost || 100) * shop.markup * (1 + playerLevel * 0.05)),
+        stock: Math.floor(5 + Math.random() * 10),
+    }));
+}
+
+function calculateDiscount(price, factionRep, factionId) {
+    const rep = factionRep[factionId] || 0;
+    if (rep >= 900) return Math.floor(price * 0.5);
+    if (rep >= 700) return Math.floor(price * 0.65);
+    if (rep >= 500) return Math.floor(price * 0.8);
+    if (rep >= 200) return Math.floor(price * 0.9);
+    return price;
+}
+
+// ─── Hacking / Breach System ──────────────────────────────────────────
+function generateHackingChallenge(difficulty) {
+    const nodeCount = Math.min(8, 2 + Math.floor(difficulty * 1.5));
+    const nodes = [];
+    for (let i = 0; i < nodeCount; i++) {
+        nodes.push({
+            id: i,
+            type: ['data', 'security', 'gateway', 'core', 'decoy'][Math.floor(Math.random() * 5)],
+            defense: 10 + difficulty * 5 + Math.floor(Math.random() * 10),
+            connected: [],
+            breached: false,
+        });
+    }
+    for (let i = 0; i < nodeCount; i++) {
+        const connections = Math.floor(1 + Math.random() * 3);
+        for (let j = 0; j < connections; j++) {
+            const target = Math.floor(Math.random() * nodeCount);
+            if (target !== i && !nodes[i].connected.includes(target)) {
+                nodes[i].connected.push(target);
+                nodes[target].connected.push(i);
+            }
+        }
+    }
+    return { nodes, current: 0, difficulty, breached: 0, total: nodeCount, timeLimit: 30000 + difficulty * 5000, startTime: Date.now() };
+}
+
+function attemptBreach(node, hackPower) {
+    const roll = Math.random() * 100 + hackPower;
+    const threshold = node.defense;
+    if (roll >= threshold) {
+        node.breached = true;
+        return { success: true, message: 'Node ' + node.id + ' breached!', roll: Math.floor(roll), threshold };
+    }
+    return { success: false, message: 'Breach failed on node ' + node.id, roll: Math.floor(roll), threshold, alertLevel: Math.floor((threshold - roll) / 10) };
+}
+
+function getHackingReward(hackResult, difficulty) {
+    const base = { cr: 50 * difficulty, xp: 20 * difficulty };
+    const bonusNodes = hackResult.breachedNodes || 0;
+    const bonusMult = 1 + bonusNodes * 0.1;
+    const dataFound = Math.random() < 0.2 + difficulty * 0.05;
+    return {
+        cr: Math.floor(base.cr * bonusMult),
+        xp: Math.floor(base.xp * bonusMult),
+        data: dataFound ? { name: 'Encrypted Data #' + Math.floor(Math.random() * 1000), type: 'data', rarity: difficulty >= 5 ? 'rare' : 'common' } : null,
+    };
+}
+
+// ─── Prototype Methods (placeholders for new screens) ─────────────────
+Game.prototype.renderDeck = function() {
+    this.ui.text(20, 20, 'Program Deck', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const c = this.character?.character || {};
+    const deck = c.equippedPrograms || [];
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#0ff';
+    this.ui.roundRect(ctx, 20, 55, CFG.WIDTH - 40, 30, 4, true, true);
+    ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Active Programs: ' + deck.length + ' / 6 | Drag to rearrange', CFG.WIDTH / 2, 70);
+    deck.forEach((p, i) => {
+        const y = 90 + i * 40;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = p.rarity === 'legendary' ? '#ff0' : p.rarity === 'epic' ? '#f0f' : '#333';
+        this.ui.roundRect(ctx, 30, y, CFG.WIDTH - 60, 35, 4, true, true);
+        ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(p.name || 'Program ' + (i + 1), 40, y + 18);
+        ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
+        ctx.fillText('Slot ' + (i + 1), CFG.WIDTH - 40, y + 18);
+    });
+};
+
+Game.prototype.renderMatrix = function() {
+    this.ui.text(20, 20, 'Matrix Interface', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    this._matrixGame = this._matrixGame || generateMatrixGame(3);
+    const mg = this._matrixGame;
+    ctx.fillStyle = '#001'; ctx.strokeStyle = '#0ff';
+    this.ui.roundRect(ctx, 20, 55, CFG.WIDTH - 40, 200, 8, true, true);
+    ctx.fillStyle = '#0ff'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Sequence Memory Challenge', CFG.WIDTH / 2, 75);
+    ctx.fillStyle = '#888'; ctx.font = '9px monospace';
+    ctx.fillText('Repeat the sequence of 4 directions', CFG.WIDTH / 2, 95);
+    if (!mg.started) {
+        this.ui.btn(CFG.WIDTH / 2 - 50, 160, 100, 30, 'Start', () => { mg.started = true; mg.startTime = Date.now(); }, { font: '10px Orbitron', bg: '#0a0a2a', border: '#0ff', color: '#0ff' });
+    } else if (mg.done) {
+        ctx.fillStyle = mg.success ? '#0f0' : '#f00';
+        ctx.font = '16px Orbitron'; ctx.textAlign = 'center';
+        ctx.fillText(mg.success ? 'SUCCESS!' : 'FAILED!', CFG.WIDTH / 2, 160);
+        ctx.fillStyle = '#888'; ctx.font = '9px monospace';
+        ctx.fillText('Score: ' + mg.playerIndex + ' / ' + mg.sequence.length, CFG.WIDTH / 2, 190);
+        this.ui.btn(CFG.WIDTH / 2 - 60, 210, 120, 28, 'Retry', () => { this._matrixGame = generateMatrixGame(mg.difficulty); }, { font: '9px Orbitron', bg: '#0a0a2a', border: '#0ff', color: '#0ff' });
+    } else {
+        ctx.fillStyle = '#ff0'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('Input: ' + mg.playerSequence.map(d => ['↑','→','↓','←'][d]).join(' ') + '_', CFG.WIDTH / 2, 160);
+        const btns = ['↑', '→', '↓', '←'];
+        btns.forEach((b, i) => {
+            const bx = 60 + i * 90;
+            this.ui.btn(bx, 185, 80, 35, b, () => {
+                if (mg.done || !mg.started) return;
+                mg.playerSequence.push(i);
+                checkMatrixInput(mg, i);
+            }, { font: '14px monospace', bg: '#0a0a1a', border: '#0ff', color: '#0ff' });
+        });
+    }
+    ctx.fillStyle = '#555'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Time: ' + Math.max(0, Math.floor(((mg.timeLimit - (Date.now() - mg.startTime)) / 1000))) + 's', CFG.WIDTH / 2, CFG.HEIGHT - 30);
+};
+
+Game.prototype.renderChat = function() {
+    this.ui.text(20, 20, 'Network Chat', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const msgs = this._chatMessages || [];
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#333';
+    this.ui.roundRect(ctx, 15, 55, CFG.WIDTH - 30, CFG.HEIGHT - 130, 4, true, true);
+    msgs.slice(-20).forEach((m, i) => {
+        const y = 60 + i * 18;
+        ctx.fillStyle = m.color || '#aaa'; ctx.font = '8px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText('[' + m.time + '] ' + m.user + ': ' + m.text, 25, y);
+    });
+    ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Connected to global chat | ' + msgs.length + ' messages', CFG.WIDTH / 2, CFG.HEIGHT - 35);
+};
+
+Game.prototype.renderArena = function() {
+    this.ui.text(20, 20, 'Arena', { font: CFG.FONTS.title, color: '#f80' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#f80';
+    this.ui.roundRect(ctx, 20, 55, CFG.WIDTH - 40, 100, 8, true, true);
+    ctx.fillStyle = '#f80'; ctx.font = '12px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('PVP Combat Arena', CFG.WIDTH / 2, 80);
+    ctx.fillStyle = '#aaa'; ctx.font = '9px monospace';
+    ctx.fillText('Fight other netrunners and climb the ranks!', CFG.WIDTH / 2, 105);
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace';
+    ctx.fillText('Rating: ' + (this.character?.character?.pvp_rating || 1000), CFG.WIDTH / 2, 130);
+    this.ui.btn(40, 170, 120, 35, 'Quick Match', () => { this.screen = 'pvp_match'; }, { font: '9px Orbitron', bg: '#1a0a0a', border: '#f80', color: '#f80' });
+    this.ui.btn(180, 170, 120, 35, 'Leaderboard', () => { this.screen = 'leaderboard'; }, { font: '9px Orbitron', bg: '#0a0a1a', border: '#ff0', color: '#ff0' });
+    this.ui.btn(320, 170, 120, 35, 'History', () => { this.showNotification('Coming soon', '#ff0'); }, { font: '9px Orbitron', bg: '#0a1a0a', border: '#0f0', color: '#0f0' });
+};
+
+Game.prototype.renderClan = function() {
+    this.ui.text(20, 20, 'Clan', { font: CFG.FONTS.title, color: '#f0f' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#f0f';
+    this.ui.roundRect(ctx, 20, 55, CFG.WIDTH - 40, 80, 8, true, true);
+    ctx.fillStyle = '#f0f'; ctx.font = '12px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Clan System', CFG.WIDTH / 2, 80);
+    ctx.fillStyle = '#aaa'; ctx.font = '9px monospace';
+    ctx.fillText('Join or create a clan to fight together!', CFG.WIDTH / 2, 105);
+    this.ui.btn(40, 150, 140, 35, 'Create Clan', () => { this.showNotification('Clan creation coming soon', '#ff0'); }, { font: '9px Orbitron', bg: '#0a0a2a', border: '#f0f', color: '#f0f' });
+    this.ui.btn(200, 150, 140, 35, 'Find Clan', () => { this.screen = 'clan_wars'; }, { font: '9px Orbitron', bg: '#0a0a2a', border: '#0ff', color: '#0ff' });
+    this.ui.btn(360, 150, 140, 35, 'Clan Vault', () => { this.screen = 'clan_vault'; }, { font: '9px Orbitron', bg: '#0a0a2a', border: '#ff0', color: '#ff0' });
+};
+
+Game.prototype.renderDailies = function() {
+    this.ui.text(20, 20, 'Daily Challenges', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const dailies = this._dailyChallenges || DAILY_CHALLENGES_DATA.slice(0, 5);
+    dailies.forEach((d, i) => {
+        const y = 55 + i * 45;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = d.completed ? '#0f0' : '#333';
+        this.ui.roundRect(ctx, 15, y, CFG.WIDTH - 30, 38, 4, true, true);
+        ctx.fillStyle = d.completed ? '#0f0' : '#ff0';
+        ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText((d.completed ? '✓ ' : '○ ') + d.name, 25, y + 12);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+        ctx.fillText(d.desc, 25, y + 25);
+        ctx.fillStyle = '#888'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+        ctx.fillText('+' + (d.rewards?.cr || 0) + 'cr +' + (d.rewards?.xp || 0) + 'xp', CFG.WIDTH - 25, y + 12);
+    });
+    ctx.fillStyle = '#555'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Challenges reset daily | ' + dailies.filter(d => d.completed).length + ' / ' + dailies.length + ' done', CFG.WIDTH / 2, CFG.HEIGHT - 30);
+};
+
+Game.prototype.renderLeaderboard = function() {
+    this.ui.text(20, 20, 'Leaderboard', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const entries = this._leaderboard || [
+        { rank: 1, name: 'GhostRunner', level: 99, rating: 2500 },
+        { rank: 2, name: 'Data_Shredder', level: 87, rating: 2200 },
+        { rank: 3, name: 'Neon_Ninja', level: 72, rating: 1900 },
+        { rank: 4, name: 'Cyber_Punk', level: 65, rating: 1700 },
+        { rank: 5, name: 'Net_Walker', level: 55, rating: 1500 },
+    ];
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#ff0';
+    this.ui.roundRect(ctx, 15, 50, CFG.WIDTH - 30, 25, 4, true, true);
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Rank | Player | Level | Rating', CFG.WIDTH / 2, 62);
+    entries.forEach((e, i) => {
+        const y = 80 + i * 28;
+        ctx.fillStyle = (i + 1) <= 3 ? '#0d0d1a' : '#0a0a1a';
+        ctx.strokeStyle = (i + 1) === 1 ? '#ff0' : (i + 1) === 2 ? '#ccc' : (i + 1) === 3 ? '#f80' : '#222';
+        this.ui.roundRect(ctx, 15, y, CFG.WIDTH - 30, 25, 4, true, true);
+        ctx.fillStyle = (i + 1) <= 3 ? ['#ff0','#ccc','#f80'][i] : '#aaa';
+        ctx.font = '9px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('#' + e.rank + '  ' + e.name + '  Lv.' + e.level + '  ' + e.rating + 'pts', CFG.WIDTH / 2, y + 13);
+    });
+};
+
+Game.prototype.renderAdmin = function() {
+    this.ui.text(20, 20, 'Admin', { font: CFG.FONTS.title, color: '#f00' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#f00';
+    this.ui.roundRect(ctx, 20, 55, CFG.WIDTH - 40, 200, 8, true, true);
+    ctx.fillStyle = '#f00'; ctx.font = '10px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Admin Panel', CFG.WIDTH / 2, 75);
+    ctx.fillStyle = '#aaa'; ctx.font = '8px monospace';
+    ctx.fillText('Game version: 2.0.4 | Players online: ' + Math.floor(Math.random() * 100), CFG.WIDTH / 2, 100);
+    ctx.fillText('Active sessions: 42 | DB status: OK', CFG.WIDTH / 2, 115);
+    ctx.fillText('Server load: ' + Math.floor(20 + Math.random() * 30) + '%', CFG.WIDTH / 2, 130);
+    this.ui.btn(40, 170, 140, 30, 'Clear Cache', () => { this._chatMessages = []; this.showNotification('Cache cleared!', '#0f0'); }, { font: '8px Orbitron', bg: '#1a0000', border: '#f00', color: '#f00' });
+    this.ui.btn(200, 170, 140, 30, 'Reset Daily', () => { this._dailyChallenges = DAILY_CHALLENGES_DATA.slice(0, 5); this.showNotification('Daily challenges reset!', '#ff0'); }, { font: '8px Orbitron', bg: '#1a0000', border: '#f00', color: '#f00' });
+    this.ui.btn(360, 170, 140, 30, 'Debug Info', () => { console.log('DEBUG:', { screen: this.screen, char: this.character }); }, { font: '8px Orbitron', bg: '#1a0000', border: '#f00', color: '#f00' });
+};
+
+Game.prototype.renderPvPMatch = function() {
+    this.ui.text(20, 20, 'PVP Match', { font: CFG.FONTS.title, color: '#f80' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'arena', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#f80';
+    this.ui.roundRect(ctx, 20, 55, CFG.WIDTH - 40, 150, 8, true, true);
+    ctx.fillStyle = '#f80'; ctx.font = '12px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Finding opponent...', CFG.WIDTH / 2, 80);
+    ctx.fillStyle = '#aaa'; ctx.font = '8px monospace';
+    ctx.fillText('Searching for players in your rating range...', CFG.WIDTH / 2, 110);
+    ctx.fillText('Estimated wait: 5-15 seconds', CFG.WIDTH / 2, 130);
+    this.ui.btn(CFG.WIDTH / 2 - 50, 170, 100, 28, 'Cancel', () => { this.screen = 'arena'; }, { font: '8px Orbitron', bg: '#1a0000', border: '#f00', color: '#f00' });
+};
+
+Game.prototype.renderClanWars = function() {
+    this.ui.text(20, 20, 'Clan Wars', { font: CFG.FONTS.title, color: '#f80' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'clan', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#f80';
+    this.ui.roundRect(ctx, 20, 55, CFG.WIDTH - 40, 60, 8, true, true);
+    ctx.fillStyle = '#f80'; ctx.font = '10px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('No active clan wars', CFG.WIDTH / 2, 80);
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace';
+    ctx.fillText('Join a clan to participate in wars', CFG.WIDTH / 2, 100);
+};
+
+Game.prototype.renderClanVault = function() {
+    this.ui.text(20, 20, 'Clan Vault', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'clan', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#ff0';
+    this.ui.roundRect(ctx, 20, 55, CFG.WIDTH - 40, 60, 8, true, true);
+    ctx.fillStyle = '#888'; ctx.font = '9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Clan Vault is empty', CFG.WIDTH / 2, 80);
+    ctx.fillStyle = '#666'; ctx.font = '8px monospace';
+    ctx.fillText('Donate items and credits to the clan vault', CFG.WIDTH / 2, 100);
+};
+
+Game.prototype.renderShop = function() {
+    this.ui.text(20, 20, 'Shop', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const items = generateShopInventory('general', this.character?.character?.level || 1);
+    items.forEach((item, i) => {
+        const y = 55 + i * 50;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = item.rarity === 'legendary' ? '#ff0' : item.rarity === 'epic' ? '#f0f' : '#333';
+        this.ui.roundRect(ctx, 15, y, CFG.WIDTH - 30, 42, 4, true, true);
+        ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(item.name, 25, y + 14);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+        ctx.fillText(item.desc || 'No description', 25, y + 27);
+        ctx.fillStyle = '#ff0'; ctx.font = '8px Orbitron'; ctx.textAlign = 'right';
+        ctx.fillText(item.price + 'cr | Stock: ' + item.stock, CFG.WIDTH - 25, y + 14);
+        this.ui.btn(CFG.WIDTH - 80, y + 20, 60, 18, 'Buy', () => {
+            if ((this.character?.character?.credits || 0) >= item.price) {
+                this.character.character.credits -= item.price;
+                addItemToInventory(this.character.character.inventory || [], item);
+                this.showNotification('Bought ' + item.name, '#0f0');
+            } else { this.showNotification('Not enough credits', '#f00'); }
+        }, { font: '7px Orbitron', bg: '#001', border: '#0ff', color: '#0ff' });
+    });
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Credits: ' + (this.character?.character?.credits || 0), CFG.WIDTH / 2, CFG.HEIGHT - 25);
+};
+
+Game.prototype.renderQuests = function() {
+    this.ui.text(20, 20, 'Quests', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const quests = this.character?.character?.missions || STORY_MISSIONS.slice(0, 5);
+    quests.forEach((q, i) => {
+        const y = 55 + i * 50;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = q.completed ? '#0f0' : '#333';
+        this.ui.roundRect(ctx, 15, y, CFG.WIDTH - 30, 42, 4, true, true);
+        ctx.fillStyle = q.completed ? '#0f0' : '#ff0'; ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText((q.completed ? '✓ ' : '○ ') + q.name, 25, y + 12);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+        ctx.fillText(q.desc || 'Complete this mission', 25, y + 25);
+        ctx.fillStyle = '#888'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+        ctx.fillText('+' + (q.rewards?.cr || 0) + 'cr +' + (q.rewards?.xp || 0) + 'xp', CFG.WIDTH - 25, y + 12);
+        if (!q.completed && i < 3) {
+            this.ui.btn(CFG.WIDTH - 80, y + 24, 60, 15, 'Accept', () => { q.completed = true; this.showNotification('Quest accepted!', '#0f0'); }, { font: '6px Orbitron', bg: '#0a0a1a', border: '#0ff', color: '#0ff' });
+        }
+    });
+};
+
+Game.prototype.renderCrafting = function() {
+    this.ui.text(20, 20, 'Crafting', { font: CFG.FONTS.title, color: '#f80' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const recipes = RECIPES_DATA.slice(0, 6);
+    recipes.forEach((r, i) => {
+        const y = 55 + i * 55;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = r.rarity === 'legendary' ? '#ff0' : '#333';
+        this.ui.roundRect(ctx, 15, y, CFG.WIDTH - 30, 48, 4, true, true);
+        ctx.fillStyle = '#fff'; ctx.font = '10px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(r.name, 25, y + 12);
+        ctx.fillStyle = '#aaa'; ctx.font = '7px monospace';
+        const mats = (r.materials || []).map(m => m.name + ' x' + m.qty).join(', ');
+        ctx.fillText('Need: ' + (mats || 'None'), 25, y + 28);
+        ctx.fillStyle = '#888'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+        ctx.fillText('Lv.' + (r.lvl || 1) + ' ' + (r.rarity || 'common'), CFG.WIDTH - 25, y + 12);
+        this.ui.btn(CFG.WIDTH - 80, y + 30, 60, 15, 'Craft', () => { this.showNotification('Crafting not yet implemented', '#ff0'); }, { font: '6px Orbitron', bg: '#0a0a1a', border: '#f80', color: '#f80' });
+    });
+};
+
+Game.prototype.renderFriends = function() {
+    this.ui.text(20, 20, 'Friends', { font: CFG.FONTS.title, color: '#0f0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const friends = this.character?.character?.friends || [];
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#0f0';
+    this.ui.roundRect(ctx, 15, 55, CFG.WIDTH - 30, 80, 8, true, true);
+    ctx.fillStyle = '#0f0'; ctx.font = '10px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(friends.length > 0 ? 'Your Friends' : 'No friends yet', CFG.WIDTH / 2, 75);
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(friends.length > 0 ? friends.map(f => f.name).join(', ') : 'Add friends using their player ID', CFG.WIDTH / 2, 100);
+    ctx.fillStyle = '#555'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Friends online: ' + friends.filter(f => f.online).length + ' / ' + friends.length, CFG.WIDTH / 2, 120);
+};
+
+Game.prototype.renderSettings = function() {
+    this.ui.text(20, 20, 'Settings', { font: CFG.FONTS.title, color: '#888' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const settings = [
+        { label: 'Sound', value: this._soundEnabled !== false, type: 'toggle', key: 'sound' },
+        { label: 'Music', value: this._musicEnabled !== false, type: 'toggle', key: 'music' },
+        { label: 'Notifications', value: this._notificationsEnabled !== false, type: 'toggle', key: 'notifications' },
+        { label: 'Auto-Save', value: this._autoSaveEnabled !== false, type: 'toggle', key: 'autoSave' },
+        { label: 'Dark Mode', value: true, type: 'toggle', key: 'dark' },
+        { label: 'Show FPS', value: this._showFps || false, type: 'toggle', key: 'fps' },
+    ];
+    settings.forEach((s, i) => {
+        const y = 55 + i * 35;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#333';
+        this.ui.roundRect(ctx, 20, y, CFG.WIDTH - 40, 28, 4, true, true);
+        ctx.fillStyle = '#fff'; ctx.font = '9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(s.label, 30, y + 14);
+        ctx.fillStyle = s.value ? '#0f0' : '#f00'; ctx.font = '8px Orbitron'; ctx.textAlign = 'right';
+        ctx.fillText(s.value ? 'ON' : 'OFF', CFG.WIDTH - 30, y + 14);
+    });
+    ctx.fillStyle = '#555'; ctx.font = '7px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('v2.0.4 | Click to toggle settings', CFG.WIDTH / 2, CFG.HEIGHT - 25);
+};
+
+Game.prototype.renderInventory = function() {
+    this.ui.text(20, 20, 'Inventory', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const inv = this.character?.character?.inventory || [];
+    const sorted = sortInventory(inv, 'rarity');
+    sorted.slice(0, 12).forEach((item, i) => {
+        const y = 55 + i * 28;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = item.rarity === 'legendary' ? '#ff0' : item.rarity === 'epic' ? '#f0f' : '#333';
+        this.ui.roundRect(ctx, 15, y, CFG.WIDTH - 30, 24, 4, true, true);
+        ctx.fillStyle = '#fff'; ctx.font = '9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(item.name + (item.qty > 1 ? ' x' + item.qty : ''), 25, y + 12);
+        ctx.fillStyle = '#888'; ctx.font = '7px monospace'; ctx.textAlign = 'right';
+        ctx.fillText(item.type + ' | ' + (item.rarity || 'common'), CFG.WIDTH - 25, y + 12);
+    });
+    ctx.fillStyle = '#555'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Total items: ' + inv.reduce((s, i) => s + (i.qty || 1), 0) + ' | Value: ' + getInventoryValue(inv) + 'cr', CFG.WIDTH / 2, CFG.HEIGHT - 25);
+};
+
+Game.prototype.renderTutorial = function() {
+    this.ui.text(20, 20, 'Tutorial', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Skip', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const step = TUTORIAL_FLOW[this._tutorialStep || 0];
+    if (!step) { this.screen = 'main'; return; }
+    ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#0ff';
+    this.ui.roundRect(ctx, 20, 55, CFG.WIDTH - 40, 160, 8, true, true);
+    ctx.fillStyle = '#0ff'; ctx.font = '14px Orbitron'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(step.title, CFG.WIDTH / 2, 80);
+    ctx.fillStyle = '#ccc'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(step.text, CFG.WIDTH / 2, 120);
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Step ' + ((this._tutorialStep || 0) + 1) + ' of ' + TUTORIAL_FLOW.length, CFG.WIDTH / 2, 150);
+    this.ui.btn(CFG.WIDTH / 2 - 40, 170, 80, 28, 'Next', () => {
+        this._tutorialStep = (this._tutorialStep || 0) + 1;
+        if (this._tutorialStep >= TUTORIAL_FLOW.length) { this._tutorialStep = 0; this.screen = 'main'; }
+    }, { font: '9px Orbitron', bg: '#0a0a2a', border: '#0ff', color: '#0ff' });
+};
+
+Game.prototype.renderCodex = function() {
+    this.ui.text(20, 20, 'Codex', { font: CFG.FONTS.title, color: '#0ff' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const entries = [
+        { name: 'ICE Programs', desc: 'Hostile AI that guard networks' },
+        { name: 'Net Zones', desc: 'Different layers of the NetSphere' },
+        { name: 'Factions', desc: 'Organizations vying for control' },
+        { name: 'Cyberware', desc: 'Enhancements for netrunners' },
+        { name: 'History', desc: 'The story of the NetSphere' },
+    ];
+    entries.forEach((e, i) => {
+        const y = 55 + i * 45;
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = '#0ff';
+        this.ui.roundRect(ctx, 20, y, CFG.WIDTH - 40, 38, 4, true, true);
+        ctx.fillStyle = '#0ff'; ctx.font = '10px Orbitron'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(e.name, 30, y + 14);
+        ctx.fillStyle = '#aaa'; ctx.font = '8px monospace';
+        ctx.fillText(e.desc, 30, y + 28);
+    });
+};
+
+Game.prototype.renderTitles = function() {
+    this.ui.text(20, 20, 'Titles', { font: CFG.FONTS.title, color: '#ff0' });
+    this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
+    const ctx = this.ctx;
+    const unlocked = this.character?.character?.collectedTitles || [];
+    TITLE_SYSTEM.titles.forEach((t, i) => {
+        const y = 55 + i * 35;
+        const has = unlocked.includes(t.id);
+        ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = has ? '#0f0' : '#333';
+        this.ui.roundRect(ctx, 20, y, CFG.WIDTH - 40, 28, 4, true, true);
+        ctx.fillStyle = has ? '#0f0' : '#666'; ctx.font = '9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText((has ? '✓ ' : '○ ') + t.name + ' - ' + t.desc, 30, y + 14);
+    });
+    ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('Unlocked: ' + unlocked.length + ' / ' + TITLE_SYSTEM.titles.length, CFG.WIDTH / 2, CFG.HEIGHT - 25);
+};
 
 // ─── Final Logging ──────────────────────────────────────────────────────
 console.log('🔷 Neon Protocol: Ghost in the Grid v.2.0.4');
