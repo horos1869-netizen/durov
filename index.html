@@ -5840,21 +5840,6 @@ function calcHealAmount(baseHeal, implantPower) {
 }
 
 // ─── Expanded Game Data ──────────────────────────────────────────────────
-const CYBERWARE_DATA = {
-    neural_link: { name: 'Neural Link', slot: 'brain', rarity: 'uncommon', atk: 3, hack: 2, cost: 500 },
-    reflex_boost: { name: 'Reflex Booster', slot: 'spine', rarity: 'rare', def: 5, spd: 3, cost: 1200 },
-    optic_camo: { name: 'Optic Camo', slot: 'eyes', rarity: 'rare', stealth: 4, cost: 1500 },
-    subdermal: { name: 'Subdermal Armor', slot: 'skin', rarity: 'uncommon', def: 4, hp: 20, cost: 800 },
-    adrenal_pump: { name: 'Adrenal Pump', slot: 'heart', rarity: 'epic', atk: 8, spd: 5, cost: 3000 },
-    nano_regen: { name: 'Nano Regen', slot: 'blood', rarity: 'epic', hp_regen: 3, cost: 2500 },
-    memory_chip: { name: 'Memory Chip', slot: 'brain', rarity: 'common', hack: 2, cost: 300 },
-    targeting_eye: { name: 'Targeting Eye', slot: 'eyes', rarity: 'rare', crit: 5, atk: 4, cost: 1800 },
-    thermal_weave: { name: 'Thermal Weave', slot: 'skin', rarity: 'common', def: 2, cost: 400 },
-    synaptic_accel: { name: 'Synaptic Accelerator', slot: 'spine', rarity: 'epic', spd: 8, hack: 5, cost: 3500 },
-    black_ice: { name: 'Black ICE Generator', slot: 'cyberdeck', rarity: 'legendary', atk: 15, hack: 10, def: 5, cost: 8000 },
-    ghost_module: { name: 'Ghost Module', slot: 'cyberdeck', rarity: 'epic', stealth: 8, hack: 6, cost: 4500 },
-};
-
 const ENEMY_TYPES_EXT = {
     sentry: {
         name: 'Sentry ICE', base_hp: 30, base_dmg: 5, scaling: 1.2, type: 'security',
@@ -6522,7 +6507,7 @@ const NETWORK_NODES = [
 ];
 
 // ─── Story NPC Dialogues ────────────────────────────────────────────────
-const NPC_DIALOGUES = {
+const NPC_DIALOGUES_SIMPLE = {
     'guardian': [
         { text: 'Welcome, netrunner. The NetSphere needs you.', options: [{ text: 'Tell me more', next: 1 }, { text: 'Not interested', action: 'leave' }] },
         { text: 'The AI is awakening. You must stop it.', options: [{ text: 'How do I start?', next: 2 }, { text: 'Sounds dangerous', action: 'leave' }] },
