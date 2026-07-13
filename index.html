@@ -436,12 +436,14 @@ class Game {
     loop() {
         this.time++;
         this.anim.update();
+        this.updateFloatingTexts();
         this.ctx.save();
         this.anim.drawBg(this.ctx);
         this.renderScreen();
         this.anim.drawParticles(this.ctx);
         this.anim.drawGlitch(this.ctx);
         this.anim.drawScan(this.ctx);
+        this.drawFloatingTexts(this.ctx);
         this.ctx.restore();
         requestAnimationFrame(() => this.loop());
     }
@@ -4857,20 +4859,6 @@ function processAchQueue() {
     }, 4000);
 }
 
-// ─── Game Loop Override ──────────────────────────────────────────────────
-const originalLoop = Game.prototype.loop;
-Game.prototype.loop = function() {
-    this.time++;
-    const ctx = this.ctx;
-    ctx.save();
-    this.drawScreen(ctx, this.screen);
-    this.drawFloatingTexts(ctx);
-    this.drawGlitchOverlay(ctx, this.time, 0.3);
-    this.drawParticleBurst(ctx, this.mouseX, this.mouseY, '#0ff', 3, this.time);
-    ctx.restore();
-    requestAnimationFrame(() => this.loop());
-};
-
 // ─── Keyboard Shortcuts ─────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
     if (!game) return;
@@ -4994,19 +4982,6 @@ function calcCombatDamage(atk, def, critChance, bonuses) {
 function calcHealAmount(baseHeal, implantPower) {
     return Math.floor(baseHeal * (1 + (implantPower || 0) * 0.02));
 }
-
-// ─── Hook original loop to add floating texts ────────────────────────────
-const __origLoop = Game.prototype.loop;
-Game.prototype.loop = function() {
-    this.time++;
-    this.updateFloatingTexts();
-    const ctx = this.ctx;
-    ctx.save();
-    this.drawScreen(ctx, this.screen);
-    this.drawFloatingTexts(ctx);
-    ctx.restore();
-    requestAnimationFrame(() => this.loop());
-};
 
 // ─── Final Logging ──────────────────────────────────────────────────────
 console.log('🔷 Neon Protocol: Ghost in the Grid v.2.0.4');
