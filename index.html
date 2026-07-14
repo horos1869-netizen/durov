@@ -4674,16 +4674,6 @@ function getEconomyTier(credits) {
 function getTaxRate(credits) { return getEconomyTier(credits).taxRate; }
 
 // ─── DAILY REWARD SYSTEM ──────────────────────────────────────────────
-const DAILY_REWARDS = [
-    { day: 1, cr: 50, xp: 25, item: null },
-    { day: 2, cr: 100, xp: 50, item: 'Health Pack' },
-    { day: 3, cr: 150, xp: 75, item: null },
-    { day: 4, cr: 250, xp: 125, item: 'Energy Drink' },
-    { day: 5, cr: 400, xp: 200, item: null },
-    { day: 6, cr: 600, xp: 300, item: 'Program Shard' },
-    { day: 7, cr: 1000, xp: 500, item: 'Premium Crate' },
-];
-
 function getDailyReward(streak) {
     const idx = ((streak - 1) % 7);
     return DAILY_REWARDS[idx] || DAILY_REWARDS[0];
@@ -12194,54 +12184,6 @@ const ACHIEVEMENT_TRACKER = {
 };
 
 // ─── DAILY LOGIN REWARD SYSTEM ──────────────────────────────────────
-const DAILY_LOGIN_SYSTEM = {
-    streak: 0,
-    lastLogin: null,
-    claimedDays: [],
-    rewards: [
-        { day: 1, items: { cr: 100, xp: 10 }, desc: '100 кредитов' },
-        { day: 2, items: { cr: 150, item: 'Scrap Metal', qty: 2 }, desc: '150 cr + Scrap Metal x2' },
-        { day: 3, items: { cr: 200, item: 'Basic Circuit', qty: 3 }, desc: '200 cr + Basic Circuit x3' },
-        { day: 4, items: { cr: 300, xp: 50, item: 'Cooling Gel', qty: 2 }, desc: '300 cr + Cooling Gel x2' },
-        { day: 5, items: { cr: 500, item: 'Common Program', qty: 1 }, desc: '500 cr + Common Program' },
-        { day: 6, items: { cr: 750, xp: 100, item: 'Rare Material', qty: 1 }, desc: '750 cr + Rare Material' },
-        { day: 7, items: { cr: 1000, xp: 200, item: 'Epic Program', qty: 1 }, desc: '1000 cr + Epic Program' },
-    ],
-    checkIn() {
-        const today = new Date().toDateString();
-        if (this.lastLogin === today) return false;
-        const yesterday = new Date(Date.now() - 86400000).toDateString();
-        if (this.lastLogin === yesterday) this.streak++;
-        else this.streak = 1;
-        this.lastLogin = today;
-        const dayIdx = (this.streak - 1) % 7;
-        if (!this.claimedDays.includes(dayIdx + 1)) {
-            this.claimedDays.push(dayIdx + 1);
-        }
-        return true;
-    },
-    canClaimToday() {
-        const dayIdx = (this.streak) % 7;
-        return !this.claimedDays.includes(dayIdx + 1);
-    },
-    claimReward(game) {
-        const dayIdx = this.streak % 7;
-        const reward = this.rewards[dayIdx];
-        if (this.claimedDays.includes(dayIdx + 1)) return false;
-        this.claimedDays.push(dayIdx + 1);
-        const c = game?.character?.character || {};
-        if (reward.items.cr) c.credits = (c.credits || 0) + reward.items.cr;
-        if (game) game.showNotification('Награда дня ' + (dayIdx + 1) + ' получена! +' + reward.items.cr + 'cr', '#0f0');
-        return true;
-    },
-    save() {
-        try { localStorage.setItem('daily_login', JSON.stringify({ streak: this.streak, lastLogin: this.lastLogin, claimedDays: this.claimedDays })); } catch(e) {}
-    },
-    load() {
-        try { const d = JSON.parse(localStorage.getItem('daily_login') || '{}'); this.streak = d.streak || 0; this.lastLogin = d.lastLogin || null; this.claimedDays = d.claimedDays || []; } catch(e) {}
-    },
-};
-
 // ─── EVENT CALENDAR SYSTEM ──────────────────────────────────────────
 const EVENT_CALENDAR = {
     events: [],
@@ -12501,7 +12443,7 @@ const ITEMS_EXTENDED = [
 ];
 
 // ─── PET SYSTEM DATA ──────────────────────────────────────────────────
-const PET_DATA = [
+const PET_DATA_ALT = [
     { id: 'pet_01', name: 'Bit Pup', type: 'digital', rarity: 'common', hp: 30, atk: 5, def: 2, spd: 1.0, ability: 'fetch', desc: 'Loyal digital puppy', evolveAt: 10, evolvesTo: 'pet_02' },
     { id: 'pet_02', name: 'Byte Hound', type: 'digital', rarity: 'uncommon', hp: 60, atk: 12, def: 5, spd: 1.2, ability: 'sniff', desc: 'Enhanced tracking hound', evolveAt: 25, evolvesTo: 'pet_03' },
     { id: 'pet_03', name: 'Data Wolf', type: 'digital', rarity: 'rare', hp: 100, atk: 22, def: 10, spd: 1.5, ability: 'pack_hunt', desc: 'Alpha of the data pack' },
@@ -12514,7 +12456,7 @@ const PET_DATA = [
 ];
 
 function createPet(petId, level) {
-    const template = PET_DATA.find(p => p.id === petId);
+    const template = PET_DATA_ALT.find(p => p.id === petId);
     if (!template) return null;
     const lvlMult = 1 + (level - 1) * 0.15;
     return { ...template, level: level || 1, xp: 0, maxXp: 100 + (level || 1) * 50, hp: Math.floor(template.hp * lvlMult), maxHp: Math.floor(template.hp * lvlMult), atk: Math.floor(template.atk * lvlMult), def: Math.floor(template.def * lvlMult), happiness: 100, fed: Date.now() };
@@ -12538,7 +12480,7 @@ function getPetBonus(pet) {
 }
 
 // ─── MOUNT SYSTEM DATA ────────────────────────────────────────────────
-const MOUNT_DATA = [
+const MOUNT_DATA_ALT = [
     { id: 'mount_01', name: 'Cyber Bike', type: 'ground', speed: 1.3, rarity: 'common', cost: 500, desc: 'Basic digital motorcycle' },
     { id: 'mount_02', name: 'Hover Board', type: 'hover', speed: 1.5, rarity: 'uncommon', cost: 1200, desc: 'Floats above the grid' },
     { id: 'mount_03', name: 'Phantom Racer', type: 'ground', speed: 1.8, rarity: 'rare', cost: 3500, desc: 'Ghost in the machine' },
@@ -12549,7 +12491,7 @@ const MOUNT_DATA = [
 function getMountSpeed(mount) { return mount ? mount.speed : 1.0; }
 
 // ─── COLLECTIBLE SETS ─────────────────────────────────────────────────
-const COLLECTIBLE_SETS = [
+const COLLECTIBLE_SETS_ALT = [
     { id: 'set_01', name: 'Code Fragments', items: ['cf_1', 'cf_2', 'cf_3', 'cf_4', 'cf_5'], bonus: { hack: 5 }, desc: 'Ancient code fragments' },
     { id: 'set_02', name: 'AI Relics', items: ['ai_1', 'ai_2', 'ai_3'], bonus: { atk: 10, def: 5 }, desc: 'Remnants of old AI' },
     { id: 'set_03', name: 'Net Crystals', items: ['nc_1', 'nc_2', 'nc_3', 'nc_4'], bonus: { energy: 30, spd: 3 }, desc: 'Pure data crystals' },
@@ -12559,13 +12501,13 @@ const COLLECTIBLE_SETS = [
 
 function checkSetBonuses(collectibles) {
     const owned = new Set(collectibles || []);
-    const active = COLLECTIBLE_SETS.filter(set => set.items.every(item => owned.has(item)));
+    const active = COLLECTIBLE_SETS_ALT.filter(set => set.items.every(item => owned.has(item)));
     const totalBonus = active.reduce((acc, set) => { Object.entries(set.bonus).forEach(([k, v]) => { acc[k] = (acc[k] || 0) + v; }); return acc; }, {});
     return { active, totalBonus };
 }
 
 // ─── EVENT CALENDAR ───────────────────────────────────────────────────
-const EVENT_CALENDAR = [
+const EVENT_CALENDAR_ALT = [
     { id: 'evt_01', name: 'Double Credits Weekend', type: 'bonus', affect: 'credits', mult: 2.0, startDay: 6, endDay: 1, active: false },
     { id: 'evt_02', name: 'XP Boost Event', type: 'bonus', affect: 'xp', mult: 1.5, startDay: 3, endDay: 4, active: false },
     { id: 'evt_03', name: 'Boss Rush', type: 'challenge', affect: 'boss', mult: 1.0, startDay: 5, endDay: 5, active: false },
@@ -12575,7 +12517,7 @@ const EVENT_CALENDAR = [
 
 function getActiveEvents() {
     const now = new Date(); const day = now.getDay();
-    return EVENT_CALENDAR.filter(e => { if (e.startDay <= e.endDay) return day >= e.startDay && day <= e.endDay; else return day >= e.startDay || day <= e.endDay; });
+    return EVENT_CALENDAR_ALT.filter(e => { if (e.startDay <= e.endDay) return day >= e.startDay && day <= e.endDay; else return day >= e.startDay || day <= e.endDay; });
 }
 
 function getEventMultiplier(affect) {
@@ -12608,7 +12550,7 @@ Game.prototype.renderMountScreen = function() {
     this.ui.text(20, 20, 'Mount Selection', { font: CFG.FONTS.title, color: '#0ff' });
     this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
     const ctx = this.ctx;
-    MOUNT_DATA.forEach((m, i) => {
+    MOUNT_DATA_ALT.forEach((m, i) => {
         const y = 55 + i * 42;
         ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = m.rarity === 'legendary' ? '#ff0' : m.rarity === 'epic' ? '#f0f' : '#333';
         this.ui.roundRect(ctx, 15, y, CFG.WIDTH - 30, 36, 4, true, true);
@@ -12626,7 +12568,7 @@ Game.prototype.renderCollectionsScreen = function() {
     this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
     const ctx = this.ctx;
     const owned = this.character?.character?.collectibles || [];
-    COLLECTIBLE_SETS.forEach((set, i) => {
+    COLLECTIBLE_SETS_ALT.forEach((set, i) => {
         const y = 55 + i * 55;
         const hasAll = set.items.every(item => owned.includes(item));
         const count = set.items.filter(item => owned.includes(item)).length;
@@ -12648,7 +12590,7 @@ Game.prototype.renderEventCalendar = function() {
     this.ui.btn(CFG.WIDTH - 80, 20, 60, 30, 'Back', () => this.screen = 'main', { font: CFG.FONTS.sm });
     const ctx = this.ctx;
     const active = getActiveEvents();
-    EVENT_CALENDAR.forEach((e, i) => {
+    EVENT_CALENDAR_ALT.forEach((e, i) => {
         const y = 55 + i * 42;
         const isActive = active.some(a => a.id === e.id);
         ctx.fillStyle = '#0d0d1a'; ctx.strokeStyle = isActive ? '#0f0' : '#333';
@@ -13436,33 +13378,6 @@ function applyCombatRewards(character, rewards, game) {
 }
 
 // ─── FACTION WAR SYSTEM ──────────────────────────────────────────────
-const FACTION_WAR = {
-    wars: [],
-    declare(faction1, faction2) {
-        const existing = this.wars.find(w => (w.f1 === faction1 && w.f2 === faction2) || (w.f1 === faction2 && w.f2 === faction1));
-        if (existing && existing.status === 'active') return { success: false, message: 'War already active' };
-        const war = { id: 'war_' + Date.now(), f1: faction1, f2: faction2, status: 'active', declaredAt: Date.now(), score1: 0, score2: 0, battles: [] };
-        this.wars.push(war);
-        return { success: true, war, message: 'War declared!' };
-    },
-    addBattleResult(warId, winner, points) {
-        const war = this.wars.find(w => w.id === warId);
-        if (!war) return false;
-        if (winner === war.f1) war.score1 += points || 10;
-        else war.score2 += points || 10;
-        war.battles.push({ winner, points: points || 10, at: Date.now() });
-        if (Math.abs(war.score1 - war.score2) >= 100) {
-            war.status = 'ended';
-            war.winner = war.score1 > war.score2 ? war.f1 : war.f2;
-        }
-        return true;
-    },
-    getScore(warId) {
-        const war = this.wars.find(w => w.id === warId);
-        return war ? { f1: war.f1, s1: war.score1, f2: war.f2, s2: war.score2 } : null;
-    },
-    getActiveWars() { return this.wars.filter(w => w.status === 'active'); },
-};
 
 // ─── BATTLE PASS CALCULATOR ──────────────────────────────────────────
 function calculateBattlePassXp(actions) {
@@ -14846,36 +14761,6 @@ const EASE = {
     easeOutElastic: t => { const c = 0.3; return Math.pow(2, -10 * t) * Math.sin((t - c / 4) * (2 * Math.PI) / c) + 1; },
     easeOutBounce: t => { if (t < 1 / 2.75) return 7.5625 * t * t; if (t < 2 / 2.75) return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75; if (t < 2.5 / 2.75) return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375; return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375; },
 // ─── COLOR CONSTANTS ─────────────────────────────────────────────────
-const COLORS = {
-    BG_DARK: '#0a0a1a',
-    BG_MID: '#0d0d2b',
-    BG_LIGHT: '#1a1a3e',
-    CYAN: '#00f0ff',
-    MAGENTA: '#ff00ff',
-    YELLOW: '#ffd700',
-    RED: '#ff4444',
-    GREEN: '#44ff44',
-    WHITE: '#e0e0e0',
-    GRAY: '#666',
-    ORANGE: '#ff8800',
-    PURPLE: '#aa44ff',
-    PANEL_BG: 'rgba(10,10,30,0.85)',
-    PANEL_BORDER: '#333',
-    HIGHLIGHT: '#00f0ff',
-    DANGER: '#ff0044',
-    SUCCESS: '#00ff88',
-    WARNING: '#ffaa00',
-    INFO: '#4488ff',
-    RARITY_COMMON: '#aaa',
-    RARITY_UNCOMMON: '#55ff55',
-    RARITY_RARE: '#4488ff',
-    RARITY_EPIC: '#ff44ff',
-    RARITY_LEGENDARY: '#ffd700',
-    XP_BAR: '#ff8800',
-    HP_BAR: '#ff4444',
-    ENERGY_BAR: '#4488ff',
-    SHIELD_BAR: '#00f0ff',
-};
 
 // ─── GAME VERSION ────────────────────────────────────────────────────
 const GAME_VERSION = '2.3.0';
