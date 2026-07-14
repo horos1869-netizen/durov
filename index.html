@@ -14760,7 +14760,8 @@ const EASE = {
     easeInOutQuad: t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
     easeOutElastic: t => { const c = 0.3; return Math.pow(2, -10 * t) * Math.sin((t - c / 4) * (2 * Math.PI) / c) + 1; },
     easeOutBounce: t => { if (t < 1 / 2.75) return 7.5625 * t * t; if (t < 2 / 2.75) return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75; if (t < 2.5 / 2.75) return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375; return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375; },
-// ─── COLOR CONSTANTS ─────────────────────────────────────────────────
+    easeInOutElastic: t => t < 0.5 ? 0.5 * Math.pow(2, 10 * (2 * t - 1)) * Math.sin((2 * t - 1.1) * 5) : 0.5 * (2 - Math.pow(2, -10 * (2 * t - 1)) * Math.sin((2 * t - 1.1) * 5)),
+};
 
 // ─── GAME VERSION ────────────────────────────────────────────────────
 const GAME_VERSION = '2.3.0';
