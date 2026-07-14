@@ -9661,15 +9661,19 @@ const CODE_BREAKER = {
 
 // ─── GAME INTEGRATION / INITIALIZATION ───────────────────────────────
 function initGameSystems() {
-    ECONOMY_SIM.init();
-    NEBULA.init();
-    STAR_FIELD.init();
-    AURORA.init();
-    WEATHER_FX.init('rain');
-    EVENT_CALENDAR.init();
-    DAILY_LOGIN_SYSTEM.load();
-    DAILY_LOGIN_SYSTEM.checkIn();
-    GAME_LOGGER.info('Systems', 'All extended systems initialized');
+    try {
+        if (typeof ECONOMY_SIM?.init === 'function') ECONOMY_SIM.init();
+        if (typeof NEBULA?.init === 'function') NEBULA.init();
+        if (typeof STAR_FIELD?.init === 'function') STAR_FIELD.init();
+        if (typeof AURORA?.init === 'function') AURORA.init();
+        if (typeof WEATHER_FX?.init === 'function') WEATHER_FX.init('rain');
+        if (typeof EVENT_CALENDAR?.init === 'function') EVENT_CALENDAR.init();
+        if (typeof DAILY_LOGIN_SYSTEM?.load === 'function') DAILY_LOGIN_SYSTEM.load();
+        if (typeof DAILY_LOGIN_SYSTEM?.checkIn === 'function') DAILY_LOGIN_SYSTEM.checkIn();
+        if (typeof GAME_LOGGER?.info === 'function') GAME_LOGGER.info('Systems', 'All extended systems initialized');
+    } catch (e) {
+        console.warn('initGameSystems error:', e);
+    }
 }
 
 function registerNewKeybindings() {
@@ -9685,9 +9689,6 @@ function registerNewKeybindings() {
         if (key === 'b') { game.screen = 'calendar'; e.preventDefault(); }
     });
 }
-
-initGameSystems();
-registerNewKeybindings();
 
 // ─── Final Logging ──────────────────────────────────────────────────────
 console.log('🔷 Neon Protocol: Ghost in the Grid v.2.0.4');
@@ -9956,7 +9957,7 @@ const AMBIENT = {
 };
 
 // ─── NEBULA BACKGROUND EFFECT ─────────────────────────────────────────
-var NEBULA = {
+const NEBULA = {
     layers: [],
     count: 3,
     init() {
@@ -10004,7 +10005,7 @@ var NEBULA = {
 };
 
 // ─── STAR FIELD PARALLAX ──────────────────────────────────────────────
-var STAR_FIELD = {
+const STAR_FIELD = {
     stars: [],
     count: 120,
     speed: 0.5,
@@ -10042,7 +10043,7 @@ var STAR_FIELD = {
 };
 
 // ─── AURORA BOREALIS EFFECT ──────────────────────────────────────────
-var AURORA = {
+const AURORA = {
     strips: [],
     count: 4,
     init() {
@@ -10083,7 +10084,7 @@ var AURORA = {
 };
 
 // ─── RAIN/SNOW WEATHER SYSTEM ─────────────────────────────────────────
-var WEATHER_FX = {
+const WEATHER_FX = {
     particles: [],
     type: 'rain',
     intensity: 1,
@@ -12185,7 +12186,7 @@ const ACHIEVEMENT_TRACKER = {
 
 // ─── DAILY LOGIN REWARD SYSTEM ──────────────────────────────────────
 // ─── EVENT CALENDAR SYSTEM ──────────────────────────────────────────
-var EVENT_CALENDAR = {
+const EVENT_CALENDAR = {
     events: [],
     activeEvents: [],
     scheduledEvents: [
@@ -12363,7 +12364,7 @@ function createBoss(zone, playerLevel) {
 }
 
 // ─── GAME LOGGING SYSTEM ─────────────────────────────────────────────
-var GAME_LOGGER = {
+const GAME_LOGGER = {
     logs: [],
     maxLogs: 500,
     add(level, category, message) {
@@ -14895,6 +14896,8 @@ function drawScanlines(ctx, alpha) {
         GAME_LOGGER.warn('Telegram', 'Not running in Telegram, using offline mode');
     }
 })();
+try { initGameSystems(); } catch (e) { console.warn('initGameSystems failed:', e); }
+try { registerNewKeybindings(); } catch (e) { console.warn('registerNewKeybindings failed:', e); }
 var game = new Game();
 // ─── End Enhancements ────────────────────────────────────────────────
 </script>
