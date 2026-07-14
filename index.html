@@ -9956,7 +9956,7 @@ const AMBIENT = {
 };
 
 // ─── NEBULA BACKGROUND EFFECT ─────────────────────────────────────────
-const NEBULA = {
+var NEBULA = {
     layers: [],
     count: 3,
     init() {
@@ -10004,7 +10004,7 @@ const NEBULA = {
 };
 
 // ─── STAR FIELD PARALLAX ──────────────────────────────────────────────
-const STAR_FIELD = {
+var STAR_FIELD = {
     stars: [],
     count: 120,
     speed: 0.5,
@@ -10042,7 +10042,7 @@ const STAR_FIELD = {
 };
 
 // ─── AURORA BOREALIS EFFECT ──────────────────────────────────────────
-const AURORA = {
+var AURORA = {
     strips: [],
     count: 4,
     init() {
@@ -10083,7 +10083,7 @@ const AURORA = {
 };
 
 // ─── RAIN/SNOW WEATHER SYSTEM ─────────────────────────────────────────
-const WEATHER_FX = {
+var WEATHER_FX = {
     particles: [],
     type: 'rain',
     intensity: 1,
@@ -12185,7 +12185,7 @@ const ACHIEVEMENT_TRACKER = {
 
 // ─── DAILY LOGIN REWARD SYSTEM ──────────────────────────────────────
 // ─── EVENT CALENDAR SYSTEM ──────────────────────────────────────────
-const EVENT_CALENDAR = {
+var EVENT_CALENDAR = {
     events: [],
     activeEvents: [],
     scheduledEvents: [
@@ -12363,7 +12363,7 @@ function createBoss(zone, playerLevel) {
 }
 
 // ─── GAME LOGGING SYSTEM ─────────────────────────────────────────────
-const GAME_LOGGER = {
+var GAME_LOGGER = {
     logs: [],
     maxLogs: 500,
     add(level, category, message) {
@@ -14895,7 +14895,7 @@ function drawScanlines(ctx, alpha) {
         GAME_LOGGER.warn('Telegram', 'Not running in Telegram, using offline mode');
     }
 })();
-const game = new Game();
+var game = new Game();
 // ─── End Enhancements ────────────────────────────────────────────────
 </script>
 </body>
