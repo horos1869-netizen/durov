@@ -258,7 +258,7 @@ class CanvasUI {
         const ctx = this.ctx;
         this.elements.forEach(el => {
             try { this['draw_' + el.type](el, ctx); } catch(e) {}
-            if (el.o?.active) {
+            if (el.o?.active && el.type !== 'text') {
                 ctx.shadowColor = el.o.color || '#0ff'; ctx.shadowBlur = 10;
                 this['draw_' + el.type](el, ctx);
                 ctx.shadowBlur = 0;
@@ -274,7 +274,7 @@ class CanvasUI {
     }
     draw_text(el, ctx) {
         ctx.save(); ctx.font = el.o.font; ctx.fillStyle = el.o.color; ctx.textAlign = el.o.align; ctx.textBaseline = el.o.base;
-        ctx.shadowColor = el.o.color; ctx.shadowBlur = el.o.glow || 0;
+        if (el.o.glow) { ctx.shadowColor = el.o.color; ctx.shadowBlur = el.o.glow; }
         ctx.fillText(el.txt, el.x, el.y); ctx.restore();
     }
     draw_btn(el, ctx) {
